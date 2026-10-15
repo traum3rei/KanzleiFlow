@@ -1,0 +1,467 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+// Get a free hosted Postgres database in seconds: `npx create-db`
+
+generator client {
+  provider = "prisma-client"
+  output   = "../src/generated/prisma"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+enum MemberRole {
+  NOTARY             // Notar/in
+  CANDIDATE_NOTARY   // Notarassessor/in
+  CLERK              // Notarfachangestellte/r
+  ADMIN              // Bürovorsteher / Administrator
+  VIEWER             // Gast / Nur Lesezugriff
+}
+
+enum CaseType {
+  REAL_ESTATE        // Grundstückskaufvertrag / Überlassung
+  INHERITANCE        // Erbschein / Testament
+  CORPORATE          // Handelsregister / Gesellschaftsgründung
+  POWER_OF_ATTORNEY  // Vorsorgevollmacht / Patientenverfügung
+  MARRIAGE_FAMILY    // Ehevertrag / Scheidungsfolgen
+  OTHER              // Sonstige Beurkundung
+}
+
+enum CaseStatus {
+  DRAFT                    // Entwurf angelegt
+  IN_REVIEW                // In Prüfung / Sachbearbeitung
+  READY_FOR_NOTARIZATION   // Beurkundungsreif
+  NOTARIZED                // Beurkundet
+  COMPLETED                // Vollzug abgeschlossen
+  ARCHIVED                 // Archiviert
+}
+
+enum DocumentCategory {
+  IDENTIFICATION          // Personalausweis / Reisepass
+  LAND_REGISTRY_EXTRACT   // Grundbuchauszug
+  PURCHASE_AGREEMENT      // Kaufvertragsentwurf
+  COMMERCIAL_REGISTER     // Handelsregisterauszug
+  INVOICE                 // Kostenrechnung (GNotKG)
+  OTHER                   // Sonstiges Dokument
+}
+
+enum ExtractionStatus {
+  PENDING
+  PROCESSING
+  COMPLETED
+  FAILED
+}
+
+enum DraftStatus {
+  DRAFT
+  UNDER_REVIEW
+  APPROVED
+  SUPERSEDED
+}
+
+enum DocumentWorkflowStatus {
+  UPLOADED
+  EXTRACTING
+  NEEDS_REVIEW
+  APPROVED
+  GENERATING
+  DRAFT_READY
+  EXTRACTION_FAILED
+  GENERATION_FAILED
+}
+
+enum JobType {
+  DOCUMENT_EXTRACTION
+  DRAFT_GENERATION
+  EXPORT_GENERATION
+}
+
+enum JobStatus {
+  QUEUED
+  PROCESSING
+  COMPLETED
+  FAILED
+  CANCELLED
+}
+
+enum ConfigurationStatus {
+  DRAFT
+  READY
+  APPROVED
+  GENERATED
+}
+
+
+
+
+
+model Organization {
+  id           String   @id @default(cuid())
+  name         String
+  slug         String   @unique
+  jurisdiction String   @default("DE-BY") // State or Federal jurisdiction
+  createdAt    DateTime @default(now()) @map("created_at")
+  updatedAt    DateTime @updatedAt @map("updated_at")
+
+  members   OrganizationMember[]
+  cases     Case[]
+  documents Document[]
+  templates                DocumentTemplate[]
+  drafts                   GeneratedDraft[]
+  auditLogs                AuditEvent[]
+  jobs                     BackgroundJob[]
+  configurations           DocumentConfiguration[]
+  generatedDocumentVersions GeneratedDocumentVersion[]
+
+  @@map("organizations")
+}
+
+model User {
+  id        String   @id @default(uuid())
+  email     String   @unique
+  fullName  String   @map("full_name")
+  avatarUrl String?  @map("avatar_url")
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  memberships  OrganizationMember[]
+  createdCases Case[]               @relation("CreatedCases")
+  auditLogs    AuditEvent[]
+
+  @@map("users")
+}
+
+model OrganizationMember {
+  id             String     @id @default(cuid())
+  organizationId String     @map("organization_id")
+  userId         String     @map("user_id")
+  role           MemberRole @default(CLERK)
+  createdAt      DateTime   @default(now()) @map("created_at")
+  updatedAt      DateTime   @updatedAt @map("updated_at")
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  user         User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([organizationId, userId])
+  @@index([organizationId])
+  @@index([userId])
+  @@map("organization_members")
+}
+
+model Case {
+  id             String     @id @default(cuid())
+  organizationId String     @map("organization_id")
+  caseNumber     String     @map("case_number") // e.g. "2026-UR-0142" (Urkundenrolle / Aktenzeichen)
+  title          String
+  matterType     CaseType   @default(REAL_ESTATE) @map("matter_type")
+  status         CaseStatus @default(DRAFT)
+  description    String?
+  notaryName     String?    @map("notary_name")
+  assignedClerk  String?    @map("assigned_clerk")
+  targetDate     DateTime?  @map("target_date")
+  partiesSummary Json?      @map("parties_summary") // Structured JSON of buyers, sellers, lenders
+  createdById    String?    @map("created_by_id")
+  createdAt      DateTime   @default(now()) @map("created_at")
+  updatedAt      DateTime   @updatedAt @map("updated_at")
+
+  organization Organization     @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  createdBy                 User?                    @relation("CreatedCases", fields: [createdById], references: [id], onDelete: SetNull)
+  documents                 Document[]
+  drafts                    GeneratedDraft[]
+  configurations            DocumentConfiguration[]
+  generatedDocumentVersions  GeneratedDocumentVersion[]
+
+  @@unique([organizationId, caseNumber])
+  @@index([organizationId, status])
+  @@index([organizationId, createdAt(sort: Desc)])
+  @@index([organizationId, status, createdAt(sort: Desc)])
+  @@index([organizationId, id])
+  @@map("cases")
+}
+
+model Document {
+  id             String                 @id @default(cuid())
+  organizationId String                 @map("organization_id")
+  caseId         String                 @map("case_id")
+  fileName       String                 @map("file_name")
+  fileSize       Int                    @map("file_size")
+  mimeType       String                 @map("mime_type")
+  storagePath    String                 @map("storage_path")
+  category       DocumentCategory       @default(OTHER)
+  workflowStatus DocumentWorkflowStatus @default(UPLOADED) @map("workflow_status")
+  uploadedById   String?                @map("uploaded_by_id")
+  createdAt      DateTime               @default(now()) @map("created_at")
+  updatedAt      DateTime               @updatedAt @map("updated_at")
+
+  organization     Organization      @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  case             Case              @relation(fields: [caseId], references: [id], onDelete: Cascade)
+  extractionResult ExtractionResult?
+  drafts           GeneratedDraft[]
+
+  @@index([organizationId, caseId])
+  @@index([organizationId, caseId, createdAt])
+  @@index([organizationId, workflowStatus])
+  @@map("documents")
+}
+
+model ExtractionResult {
+  id             String                 @id @default(cuid())
+  organizationId String                 @map("organization_id")
+  documentId     String                 @unique @map("document_id")
+  status         ExtractionStatus       @default(PENDING)
+  workflowStatus DocumentWorkflowStatus @default(UPLOADED) @map("workflow_status")
+
+  rawText        String?                @map("raw_text") @db.Text
+  extractedData  Json?                  @map("extracted_data")
+  approvedData   Json?                  @map("approved_data")
+  missingFields  Json?                  @map("missing_fields")
+  discrepancies  Json?                  @map("discrepancies")
+  reviewNotes    String?                @map("review_notes")
+  reviewedById   String?                @map("reviewed_by_id")
+  reviewedAt     DateTime?              @map("reviewed_at")
+  confidence     Float?
+  modelUsed      String?                @map("model_used")
+  errorMessage   String?                @map("error_message")
+  createdAt      DateTime               @default(now()) @map("created_at")
+  updatedAt      DateTime               @updatedAt @map("updated_at")
+
+  document Document @relation(fields: [documentId], references: [id], onDelete: Cascade)
+
+  @@index([organizationId])
+  @@index([organizationId, workflowStatus])
+  @@map("extraction_results")
+}
+
+model DocumentTemplate {
+  id              String   @id @default(cuid())
+  organizationId  String   @map("organization_id")
+  name            String
+  slug            String?
+  description     String?
+  matterType      CaseType @default(REAL_ESTATE) @map("matter_type")
+  contentTemplate String?  @map("content_template")
+  version         String   @default("1.0")
+  isActive        Boolean  @default(true) @map("is_active")
+  createdAt       DateTime @default(now()) @map("created_at")
+  updatedAt       DateTime @updatedAt @map("updated_at")
+
+  organization   Organization            @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  versions       TemplateVersion[]
+  configurations DocumentConfiguration[]
+
+  @@index([organizationId, matterType])
+  @@index([organizationId, slug])
+  @@map("document_templates")
+}
+
+model GeneratedDraft {
+  id                   String      @id @default(cuid())
+  organizationId       String      @map("organization_id")
+  caseId               String      @map("case_id")
+  documentId           String?     @map("document_id")
+  templateId           String?     @map("template_id")
+  templateVersion      String      @default("1.0.0") @map("template_version")
+  title                String
+  content              String      @db.Text
+  approvedDataSnapshot Json?       @map("approved_data_snapshot")
+  version              Int         @default(1)
+  status               DraftStatus @default(DRAFT)
+  createdAt            DateTime    @default(now()) @map("created_at")
+  updatedAt            DateTime    @updatedAt @map("updated_at")
+
+  organization              Organization               @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  case                      Case                       @relation(fields: [caseId], references: [id], onDelete: Cascade)
+  document                  Document?                  @relation(fields: [documentId], references: [id], onDelete: SetNull)
+  generatedDocumentVersions GeneratedDocumentVersion[]
+
+  @@index([caseId, documentId, version])
+  @@index([organizationId, caseId])
+  @@index([organizationId, caseId, createdAt])
+  @@index([organizationId, documentId])
+  @@index([organizationId, documentId, version])
+  @@map("generated_drafts")
+}
+
+
+model AuditEvent {
+  id             String   @id @default(cuid())
+  organizationId String   @map("organization_id")
+  userId         String?  @map("user_id")
+  action         String
+  entityType     String   @map("entity_type")
+  entityId       String   @map("entity_id")
+  metadata       Json?
+  createdAt      DateTime @default(now()) @map("created_at")
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  user         User?        @relation(fields: [userId], references: [id], onDelete: SetNull)
+
+  @@index([organizationId, createdAt])
+  @@index([organizationId, entityType, entityId])
+  @@map("audit_events")
+}
+
+model BackgroundJob {
+  id             String       @id @default(cuid())
+  organizationId String       @map("organization_id")
+  jobType        JobType      @map("job_type")
+  status         JobStatus    @default(QUEUED)
+  payload        Json
+  result         Json?
+  errorMessage   String?      @map("error_message")
+  attempts       Int          @default(0)
+  maxAttempts    Int          @default(3) @map("max_attempts")
+  priority       Int          @default(0)
+  runAt          DateTime     @default(now()) @map("run_at")
+  lockedAt       DateTime?    @map("locked_at")
+  lockedBy       String?      @map("locked_by")
+  heartbeatAt    DateTime?    @map("heartbeat_at")
+  completedAt    DateTime?    @map("completed_at")
+  idempotencyKey String?      @unique @map("idempotency_key")
+  createdAt      DateTime     @default(now()) @map("created_at")
+  updatedAt      DateTime     @updatedAt @map("updated_at")
+
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+
+  @@index([status, priority(sort: Desc), runAt(sort: Asc)])
+  @@index([organizationId, status])
+  @@index([status, lockedAt])
+  @@index([organizationId, createdAt(sort: Desc)])
+  @@map("background_jobs")
+}
+
+model TemplateVersion {
+  id               String   @id @default(cuid())
+  templateId       String   @map("template_id")
+  version          String   @default("1.0.0")
+  title            String
+  description      String?
+  schemaDefinition Json?    @map("schema_definition")
+  isActive         Boolean  @default(true) @map("is_active")
+  createdAt        DateTime @default(now()) @map("created_at")
+  updatedAt        DateTime @updatedAt @map("updated_at")
+
+  template          DocumentTemplate           @relation(fields: [templateId], references: [id], onDelete: Cascade)
+  clauseDefinitions ClauseDefinition[]
+  configurations    DocumentConfiguration[]
+  generatedVersions GeneratedDocumentVersion[]
+
+  @@unique([templateId, version])
+  @@map("template_versions")
+}
+
+model ClauseDefinition {
+  id                String   @id @default(cuid())
+  templateVersionId String   @map("template_version_id")
+  code              String
+  title             String
+  category          String   @default("GENERAL")
+  description       String
+  requiredFields    Json?    @map("required_fields")
+  dependencies      Json?
+  incompatibilities Json?
+  bodyTemplate      String   @db.Text @map("body_template")
+  isDefault         Boolean  @default(false) @map("is_default")
+  sortOrder         Int      @default(0) @map("sort_order")
+  createdAt         DateTime @default(now()) @map("created_at")
+
+  templateVersion TemplateVersion  @relation(fields: [templateVersionId], references: [id], onDelete: Cascade)
+  selectedClauses SelectedClause[]
+
+  @@unique([templateVersionId, code])
+  @@index([templateVersionId, sortOrder])
+  @@map("clause_definitions")
+}
+
+model DocumentConfiguration {
+  id                        String              @id @default(cuid())
+  organizationId            String              @map("organization_id")
+  caseId                    String              @map("case_id")
+  templateId                String              @map("template_id")
+  templateVersionId         String              @map("template_version_id")
+  title                     String
+  status                    ConfigurationStatus @default(DRAFT)
+  step                      Int                 @default(1)
+  version                   Int                 @default(1)
+  formData                  Json                @map("form_data")
+  selectedClauseCodes       Json                @map("selected_clause_codes")
+  customClauseOverrides     Json?               @map("custom_clause_overrides")
+  isPrefilledFromExtraction Boolean             @default(false) @map("is_prefilled_from_extraction")
+  prefilledDocumentId       String?             @map("prefilled_document_id")
+  createdById               String?             @map("created_by_id")
+  createdAt                 DateTime            @default(now()) @map("created_at")
+  updatedAt                 DateTime            @updatedAt @map("updated_at")
+
+  organization      Organization               @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  case              Case                       @relation(fields: [caseId], references: [id], onDelete: Cascade)
+  template          DocumentTemplate           @relation(fields: [templateId], references: [id], onDelete: Cascade)
+  templateVersion   TemplateVersion            @relation(fields: [templateVersionId], references: [id], onDelete: Cascade)
+  selectedClauses   SelectedClause[]
+  generatedVersions GeneratedDocumentVersion[]
+
+  @@index([organizationId, caseId, updatedAt(sort: Desc)])
+  @@index([organizationId, caseId])
+  @@index([organizationId, status])
+  @@map("document_configurations")
+}
+
+model SelectedClause {
+  id                 String   @id @default(cuid())
+  configurationId    String   @map("configuration_id")
+  clauseDefinitionId String   @map("clause_definition_id")
+  clauseCode         String   @map("clause_code")
+  customText         String?  @db.Text @map("custom_text")
+  sortOrder          Int      @default(0) @map("sort_order")
+  createdAt          DateTime @default(now()) @map("created_at")
+
+  configuration    DocumentConfiguration @relation(fields: [configurationId], references: [id], onDelete: Cascade)
+  clauseDefinition ClauseDefinition      @relation(fields: [clauseDefinitionId], references: [id], onDelete: Cascade)
+
+  @@unique([configurationId, clauseCode])
+  @@map("selected_clauses")
+}
+
+model GeneratedDocumentVersion {
+  id                    String   @id @default(cuid())
+  organizationId        String   @map("organization_id")
+  configurationId       String   @map("configuration_id")
+  caseId                String   @map("case_id")
+  draftId               String?  @map("draft_id")
+  templateVersionId     String?  @map("template_version_id")
+  version               Int      @default(1)
+  templateVersionString String   @map("template_version_string")
+  title                 String
+  content               String   @db.Text
+  configurationSnapshot Json     @map("configuration_snapshot")
+  docxStoragePath       String?  @map("docx_storage_path")
+  createdById           String?  @map("created_by_id")
+  createdAt             DateTime @default(now()) @map("created_at")
+
+  organization    Organization           @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  configuration   DocumentConfiguration  @relation(fields: [configurationId], references: [id], onDelete: Cascade)
+  case            Case                   @relation(fields: [caseId], references: [id], onDelete: Cascade)
+  draft           GeneratedDraft?        @relation(fields: [draftId], references: [id], onDelete: SetNull)
+  templateVersion TemplateVersion?       @relation(fields: [templateVersionId], references: [id], onDelete: SetNull)
+
+  @@unique([configurationId, version])
+  @@index([organizationId, configurationId])
+  @@index([organizationId, caseId])
+  @@map("generated_document_versions")
+}
+
+model LegacyMember {
+  id        Int       @id @default(autoincrement())
+  name      String
+  email     String    @unique
+  joinedOn  DateTime  @map("joined_on")
+  paidUntil DateTime? @map("paid_until")
+
+  @@map("members")
+}
+
+
+
+
+
