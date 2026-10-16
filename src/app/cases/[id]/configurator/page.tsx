@@ -70,6 +70,7 @@ export default async function ConfiguratorPage({
   }
 
   const config = await getConfigurationById(tenant, targetConfigId);
+  if (config.caseId !== id) notFound();
   const formData = config.formData as unknown as DocumentConfigurationData;
 
   const generatedVersions = config.generatedVersions.map((v) => ({
@@ -81,37 +82,37 @@ export default async function ConfiguratorPage({
   }));
 
   return (
-    <div className="min-h-screen bg-zinc-50 dark:bg-zinc-900 text-zinc-900 dark:text-zinc-100 flex flex-col font-mono tracking-tight">
+    <div className="app-shell min-h-screen bg-zinc-50 dark:bg-zinc-900 text-zinc-900 dark:text-zinc-100 flex flex-col font-sans tracking-tight">
       <Navigation dbConnected={dbStatus.connected} tenant={tenant} />
 
       <main className="flex-1 max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-6 space-y-6">
         {/* Breadcrumb Navigation */}
-        <div className="flex items-center justify-between">
-          <nav className="flex items-center space-x-2 text-xs text-zinc-500 dark:text-zinc-400">
-            <Link href="/" className="hover:text-zinc-900 dark:hover:text-white transition">
+        <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+          <nav className="flex flex-wrap items-center gap-2 text-sm text-zinc-500 dark:text-zinc-400">
+            <Link prefetch={true} href="/" className="hover:text-zinc-900 dark:hover:text-white transition">
               Übersicht
             </Link>
             <span>/</span>
-            <Link href="/cases" className="hover:text-zinc-900 dark:hover:text-white transition">
+            <Link prefetch={true} href="/cases" className="hover:text-zinc-900 dark:hover:text-white transition">
               Akten
             </Link>
             <span>/</span>
-            <Link
+            <Link prefetch={true}
               href={`/cases/${caseItem.id}`}
-              className="text-zinc-900 dark:text-white font-bold bg-zinc-200/60 dark:bg-zinc-800 px-2 py-0.5 rounded-[2px]"
+              className="text-zinc-900 dark:text-white font-bold bg-zinc-200/60 dark:bg-zinc-800 px-2 py-0.5 rounded"
             >
               {caseItem.caseNumber}
             </Link>
             <span>/</span>
-            <span className="text-zinc-900 dark:text-zinc-100 font-bold uppercase">
+            <span className="text-zinc-900 dark:text-zinc-100 font-bold">
               Dokument-Konfigurator
             </span>
           </nav>
 
-          <div className="flex items-center gap-2">
-            <Link
+          <div className="flex flex-wrap items-center gap-2">
+            <Link prefetch={true}
               href={`/cases/${caseItem.id}`}
-              className="px-3 py-1.5 rounded-[4px] border border-zinc-300 dark:border-zinc-700 bg-white dark:bg-zinc-950 text-xs font-mono text-zinc-700 dark:text-zinc-300 hover:bg-zinc-100 dark:hover:bg-zinc-800 transition"
+              className="px-3 py-1.5 rounded-lg border border-zinc-300 dark:border-zinc-700 bg-white dark:bg-zinc-950 text-sm font-sans text-zinc-700 dark:text-zinc-300 hover:bg-zinc-100 dark:hover:bg-zinc-800 transition"
             >
               ← Zurück zur Akte
             </Link>
@@ -120,6 +121,7 @@ export default async function ConfiguratorPage({
 
         {/* Multi-Step Configurator Wizard */}
         <ConfiguratorWizard
+          key={config.id}
           caseId={caseItem.id}
           caseNumber={caseItem.caseNumber}
           caseTitle={caseItem.title}

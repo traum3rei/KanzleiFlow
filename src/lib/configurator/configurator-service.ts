@@ -457,8 +457,8 @@ export async function saveConfiguration(
 
   // Atomic database transaction: Update configuration + increment version + sync SelectedClause records
   const updated = await prisma.$transaction(async (tx) => {
-    const updatedConfig = await tx.documentConfiguration.update({
-      where: { id: configId },
+    const result = await tx.documentConfiguration.updateMany({
+      where: { id: configId, organizationId: tenant.organizationId, version: existing.version },
       data: {
         title: mergedFormData.title || existing.title,
         formData: mergedFormData as unknown as object,
@@ -467,6 +467,16 @@ export async function saveConfiguration(
         step,
         version: { increment: 1 },
       },
+    });
+
+    if (result.count !== 1) {
+      throw new ConfigurationConcurrencyError(
+        "Die Konfiguration wurde in einem anderen Fenster geändert. Bitte sichern Sie Ihre Eingaben und laden Sie die Seite neu.",
+        existing.version
+      );
+    }
+    const updatedConfig = await tx.documentConfiguration.findUniqueOrThrow({
+      where: { id: configId, organizationId: tenant.organizationId },
     });
 
     await tx.selectedClause.deleteMany({
@@ -553,8 +563,13 @@ export async function generateConfiguredDraft(
   tenant: TenantContext,
   configId: string
 ) {
-  const prisma = getPrismaClient();
-  if (!prisma) throw new Error("Datenbankverbindung nicht verfügbar.");
+  const client = getPrismaClient();
+  if (!client) throw new Error("Datenbankverbindung nicht verfügbar.");
+  return client.$transaction(async (prisma) => {
+    const [lock] = await prisma.$queryRaw<{ locked: boolean }[]>`
+      SELECT pg_try_advisory_xact_lock(hashtext(${tenant.organizationId}), hashtext(${configId})) AS locked
+    `;
+    if (!lock.locked) throw new Error("Für diese Konfiguration wird bereits ein Entwurf erstellt. Bitte warten Sie auf den Abschluss.");
 
   const config = await prisma.documentConfiguration.findUnique({
     where: { id: configId },
@@ -636,6 +651,7 @@ export async function generateConfiguredDraft(
       title: `${config.title} (Version ${nextVersionNumber})`,
       content: textContent,
       configurationSnapshot: {
+        caseNumber: config.case.caseNumber,
         formData,
         selectedClauseCodes: clauseCodes,
         rulesEvaluation: evaluation,
@@ -680,6 +696,7 @@ export async function generateConfiguredDraft(
     generatedDraft,
     docxBuffer,
   };
+  }, { timeout: 30000 });
 }
 
 /**
@@ -707,6 +724,11 @@ export async function getGeneratedVersionDocx(
 
   assertTenantOwnership(tenant, version.organizationId);
 
+  const snapshot = version.configurationSnapshot as unknown as {
+    formData: DocumentConfigurationData;
+    caseNumber?: string;
+  };
+  const originalCaseNumber = snapshot.caseNumber || snapshot.formData?.caseNumber;
   let buffer: Buffer | null = null;
   if (version.docxStoragePath) {
     buffer = await getDraftDocx(version.docxStoragePath);
@@ -714,12 +736,9 @@ export async function getGeneratedVersionDocx(
 
   // Fallback regeneration from immutable snapshot if file not on disk
   if (!buffer) {
-    const snapshot = version.configurationSnapshot as unknown as {
-      formData: DocumentConfigurationData;
-    };
-    if (snapshot?.formData) {
+    if (snapshot?.formData && originalCaseNumber) {
       buffer = await generateConfiguredDocx(snapshot.formData, {
-        caseNumber: version.configuration.case.caseNumber,
+        caseNumber: originalCaseNumber,
         version: version.version,
         templateVersion: version.templateVersionString,
       });
@@ -730,7 +749,7 @@ export async function getGeneratedVersionDocx(
     throw new Error("Dokumentdatei konnte nicht aus dem Speicher geladen werden.");
   }
 
-  const sanitizedCase = version.configuration.case.caseNumber.replace(/[^a-zA-Z0-9_-]/g, "_");
+  const sanitizedCase = (originalCaseNumber || "historische_akte").replace(/[^a-zA-Z0-9_-]/g, "_");
   const fileName = `Kaufvertrag_${sanitizedCase}_v${version.version}.docx`;
 
   return {

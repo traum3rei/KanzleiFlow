@@ -1,0 +1,111 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<OfficeApp
+  xmlns="http://schemas.microsoft.com/office/appforoffice/1.1"
+  xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+  xmlns:bt="http://schemas.microsoft.com/office/officeappbasictypes/1.0"
+  xmlns:ov="http://schemas.microsoft.com/office/taskpaneappversionoverrides"
+  xsi:type="TaskPaneApp">
+
+  <!-- Manifest Identification -->
+  <Id>3a4f6d89-9b51-411a-8c83-7182281a8901</Id>
+  <Version>1.0.0.0</Version>
+  <ProviderName>KanzleiFlow Legal Tech GmbH</ProviderName>
+  <DefaultLocale>de-DE</DefaultLocale>
+
+  <!-- Display Name & Description -->
+  <DisplayName DefaultValue="KanzleiFlow Notariats-Assistent" />
+  <Description DefaultValue="Verbindet Microsoft Word mit KanzleiFlow zur nahtlosen Übernahme geprüfter Urkunden- und Aktenstammdaten." />
+
+  <!-- Icons for Add-in Gallery & Menus -->
+  <IconUrl DefaultValue="https://localhost:3000/word-addin/assets/icon-32.png" />
+  <HighResolutionIconUrl DefaultValue="https://localhost:3000/word-addin/assets/icon-80.png" />
+  <SupportUrl DefaultValue="https://localhost:3000" />
+
+  <!-- Allowed Domains for Navigation & CORS -->
+  <AppDomains>
+    <AppDomain>https://localhost:3000</AppDomain>
+  </AppDomains>
+
+  <!-- Target Host Applications (Microsoft Word) -->
+  <Hosts>
+    <Host Name="Document" />
+  </Hosts>
+
+  <!-- Default Fallback Taskpane URL -->
+  <DefaultSettings>
+    <SourceLocation DefaultValue="https://localhost:3000/word-addin/taskpane" />
+  </DefaultSettings>
+
+  <!-- Minimum Permission: Read and Write Document (for inserting text, tables, content controls) -->
+  <Permissions>ReadWriteDocument</Permissions>
+
+  <!-- Version Overrides for Word 2016+, Word on Mac, and Word on the Web (Ribbon Integration) -->
+  <VersionOverrides xmlns="http://schemas.microsoft.com/office/taskpaneappversionoverrides" xsi:type="VersionOverridesV1_0">
+    <Hosts>
+      <Host xsi:type="Document">
+        <DesktopFormFactor>
+          <GetStarted>
+            <Title resid="GetStarted.Title" />
+            <Description resid="GetStarted.Description" />
+            <LearnMoreUrl resid="GetStarted.LearnMoreUrl" />
+          </GetStarted>
+
+          <!-- Word Ribbon Command Integration -->
+          <ExtensionPoint xsi:type="PrimaryCommandSurface">
+            <CustomTab id="KanzleiFlow.Tab">
+              <Group id="KanzleiFlow.Group">
+                <Label resid="Group.Label" />
+                <Icon>
+                  <bt:Image size="16" resid="Icon.16" />
+                  <bt:Image size="32" resid="Icon.32" />
+                  <bt:Image size="80" resid="Icon.80" />
+                </Icon>
+
+                <Control xsi:type="Button" id="KanzleiFlow.TaskpaneButton">
+                  <Label resid="Button.Label" />
+                  <Supertip>
+                    <Title resid="Button.Label" />
+                    <Description resid="Button.Tooltip" />
+                  </Supertip>
+                  <Icon>
+                    <bt:Image size="16" resid="Icon.16" />
+                    <bt:Image size="32" resid="Icon.32" />
+                    <bt:Image size="80" resid="Icon.80" />
+                  </Icon>
+                  <Action xsi:type="ShowTaskpane">
+                    <TaskpaneId>KanzleiFlow.Taskpane</TaskpaneId>
+                    <SourceLocation resid="Taskpane.Url" />
+                  </Action>
+                </Control>
+              </Group>
+              <Label resid="Tab.Label" />
+            </CustomTab>
+          </ExtensionPoint>
+        </DesktopFormFactor>
+      </Host>
+    </Hosts>
+
+    <!-- Localized String Resources & URLs -->
+    <Resources>
+      <bt:Images>
+        <bt:Image id="Icon.16" DefaultValue="https://localhost:3000/word-addin/assets/icon-16.png" />
+        <bt:Image id="Icon.32" DefaultValue="https://localhost:3000/word-addin/assets/icon-32.png" />
+        <bt:Image id="Icon.80" DefaultValue="https://localhost:3000/word-addin/assets/icon-80.png" />
+      </bt:Images>
+      <bt:Urls>
+        <bt:Url id="Taskpane.Url" DefaultValue="https://localhost:3000/word-addin/taskpane" />
+        <bt:Url id="GetStarted.LearnMoreUrl" DefaultValue="https://localhost:3000" />
+      </bt:Urls>
+      <bt:ShortStrings>
+        <bt:String id="GetStarted.Title" DefaultValue="KanzleiFlow Urkundenvorbereitung" />
+        <bt:String id="Tab.Label" DefaultValue="KanzleiFlow" />
+        <bt:String id="Group.Label" DefaultValue="Urkundenstammdaten" />
+        <bt:String id="Button.Label" DefaultValue="Akten-Assistent" />
+      </bt:ShortStrings>
+      <bt:LongStrings>
+        <bt:String id="GetStarted.Description" DefaultValue="Übertragen Sie geprüfte Mandanten-, Beteiligten- und Grundbuchdaten aus KanzleiFlow mit einem Klick in Ihre Word-Vertragsentwürfe." />
+        <bt:String id="Button.Tooltip" DefaultValue="Öffnet den KanzleiFlow Aufgabenbereich zum Durchsuchen von Akten und Einfügen verifizierter Daten als Content Controls." />
+      </bt:LongStrings>
+    </Resources>
+  </VersionOverrides>
+</OfficeApp>

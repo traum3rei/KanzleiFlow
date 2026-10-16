@@ -1,5 +1,3 @@
-import { config } from "dotenv";
-config({ path: ".env.local" });
 import { describe, it, expect } from "vitest";
 import { NextRequest } from "next/server";
 import { DEMO_NOTARIAT_CONTEXT } from "@/lib/auth/tenant";

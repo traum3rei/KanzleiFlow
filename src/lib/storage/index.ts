@@ -2,7 +2,7 @@ import fs from "fs/promises";
 import path from "path";
 import crypto from "crypto";
 
-const LOCAL_STORAGE_DIR = path.resolve(process.cwd(), ".storage/documents");
+const LOCAL_STORAGE_DIR = path.resolve(process.env.STORAGE_ROOT || ".storage", "documents");
 
 /**
  * Ensures the storage directory exists.
@@ -63,7 +63,7 @@ export async function deleteFile(storagePath: string): Promise<void> {
   }
 }
 
-const LOCAL_DRAFTS_DIR = path.resolve(process.cwd(), ".storage/drafts");
+const LOCAL_DRAFTS_DIR = path.resolve(process.env.STORAGE_ROOT || ".storage", "drafts");
 
 async function ensureDraftsDir(): Promise<void> {
   try {
@@ -125,6 +125,66 @@ export async function deleteDraftDocx(
     await fs.unlink(filePath);
   } catch (err) {
     console.warn("Could not delete draft file:", storagePathOrOrgId, err);
+  }
+}
+
+const LOCAL_EXPORTS_DIR = path.resolve(process.env.STORAGE_ROOT || ".storage", "exports");
+
+async function ensureExportsDir(): Promise<void> {
+  try {
+    await fs.mkdir(LOCAL_EXPORTS_DIR, { recursive: true });
+  } catch (err) {
+    console.error("Failed to create exports storage directory:", err);
+  }
+}
+
+/**
+ * Save an XNP/XNotar export package buffer securely in organization-scoped storage.
+ */
+export async function saveExportPackage(
+  organizationId: string,
+  exportId: string,
+  fileName: string,
+  buffer: Buffer
+): Promise<{ storagePath: string; fileHash: string }> {
+  await ensureExportsDir();
+
+  const fileHash = crypto.createHash("sha256").update(buffer).digest("hex");
+  const sanitizedName = fileName.replace(/[^a-zA-Z0-9.\-_]/g, "_");
+  const uniqueKey = `${organizationId}_export_${exportId}_${sanitizedName}`;
+  const filePath = path.join(LOCAL_EXPORTS_DIR, uniqueKey);
+
+  await fs.writeFile(filePath, buffer);
+
+  return {
+    storagePath: uniqueKey,
+    fileHash,
+  };
+}
+
+/**
+ * Retrieve an export package buffer from storage.
+ */
+export async function getExportPackage(storagePath: string): Promise<Buffer | null> {
+  try {
+    const safeBaseName = path.basename(storagePath);
+    const filePath = path.join(LOCAL_EXPORTS_DIR, safeBaseName);
+    return await fs.readFile(filePath);
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * Delete an export package from storage.
+ */
+export async function deleteExportPackage(storagePath: string): Promise<void> {
+  try {
+    const safeBaseName = path.basename(storagePath);
+    const filePath = path.join(LOCAL_EXPORTS_DIR, safeBaseName);
+    await fs.unlink(filePath);
+  } catch (err) {
+    console.warn("Could not delete export package:", storagePath, err);
   }
 }
 

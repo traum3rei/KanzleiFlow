@@ -1,18 +1,11 @@
 import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
-  /* config options here */
+  distDir: process.env.KANZLEIFLOW_TEST_RUN === "isolated" ? ".next-e2e" : ".next",
   serverExternalPackages: ["pdf-parse", "@napi-rs/canvas"],
   cacheComponents: true,
   partialPrefetching: true,
-  turbopack: {
-    rules: {
-      "*.css": {
-        loaders: ["@tailwindcss/turbopack"],
-        as: "*.css",
-      },
-    },
-  },
+  turbopack: {},
 };
 
 export default nextConfig;

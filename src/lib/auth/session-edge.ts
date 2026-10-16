@@ -25,11 +25,10 @@ export function isProductionEnvironment(): boolean {
 }
 
 function getSessionSecret(): string {
-  return (
-    process.env.SESSION_SECRET ||
-    process.env.SUPABASE_JWT_SECRET ||
-    "kanzleiflow-secure-notary-session-secret-key-2026-strict"
-  );
+  const configured = process.env.SESSION_SECRET || process.env.SUPABASE_JWT_SECRET;
+  if (configured) return configured;
+  if (isProductionEnvironment()) throw new Error("SESSION_SECRET is required in production.");
+  return "kanzleiflow-secure-notary-session-secret-key-2026-strict";
 }
 
 function base64UrlToUint8Array(base64url: string): Uint8Array {
@@ -85,7 +84,10 @@ export async function verifySessionTokenEdge(token: string): Promise<SessionPayl
     const payloadJson = new TextDecoder().decode(base64UrlToUint8Array(payloadBase64));
     const payload = JSON.parse(payloadJson) as SessionPayload;
 
-    if (payload.expiresAt < Date.now()) {
+    if (!payload || typeof payload.userId !== "string" || !payload.userId ||
+        typeof payload.email !== "string" || !payload.email || typeof payload.fullName !== "string" ||
+        !Number.isFinite(payload.issuedAt) || !Number.isFinite(payload.expiresAt) ||
+        payload.issuedAt > Date.now() || payload.expiresAt <= payload.issuedAt || payload.expiresAt <= Date.now()) {
       return null;
     }
 

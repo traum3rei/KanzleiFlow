@@ -37,6 +37,8 @@ export interface CaseRecord {
   updatedAt: string;
 }
 
+export type CaseItem = CaseRecord;
+
 export interface DashboardStats {
   totalCases: number;
   readyForNotarization: number;
@@ -269,6 +271,10 @@ export function unpackCaseMetadata(summary: unknown): {
 
 export interface CaseFilters {
   status?: CaseStatus;
+  matterType?: MatterType;
+  assignedClerk?: string;
+  notaryName?: string;
+  responsibility?: string; // matches either assignedClerk or notaryName
   search?: string;
   take?: number;
   skip?: number;
@@ -276,7 +282,69 @@ export interface CaseFilters {
 }
 
 /**
- * Retrieve cases scoped to the tenant with bounded pagination.
+ * Helper to build Prisma where filter for case queries scoped to tenant.
+ */
+function buildCaseWhereInput(tenant: TenantContext, filters?: CaseFilters) {
+  const where: Record<string, unknown> = {
+    organizationId: tenant.organizationId,
+  };
+
+  if (filters?.status) {
+    where.status = filters.status;
+  }
+
+  if (filters?.matterType) {
+    where.matterType = filters.matterType;
+  }
+
+  const andClauses: Record<string, unknown>[] = [];
+
+  if (filters?.responsibility) {
+    const resp = filters.responsibility.trim();
+    if (resp === "UNASSIGNED" || resp.toLowerCase() === "offen") {
+      andClauses.push({
+        OR: [
+          { assignedClerk: null },
+          { assignedClerk: "" },
+        ],
+      });
+    } else {
+      andClauses.push({
+        OR: [
+          { assignedClerk: { equals: resp, mode: "insensitive" } },
+          { notaryName: { equals: resp, mode: "insensitive" } },
+        ],
+      });
+    }
+  } else {
+    if (filters?.assignedClerk) {
+      where.assignedClerk = { equals: filters.assignedClerk, mode: "insensitive" };
+    }
+    if (filters?.notaryName) {
+      where.notaryName = { equals: filters.notaryName, mode: "insensitive" };
+    }
+  }
+
+  if (filters?.search) {
+    const q = filters.search.trim();
+    andClauses.push({
+      OR: [
+        { caseNumber: { contains: q, mode: "insensitive" } },
+        { title: { contains: q, mode: "insensitive" } },
+        { description: { contains: q, mode: "insensitive" } },
+      ],
+    });
+  }
+
+  if (andClauses.length > 0) {
+    where.AND = andClauses;
+  }
+
+  return where;
+}
+
+/**
+ * Retrieve cases scoped to the tenant with bounded pagination and rich filters.
  */
 export async function getCases(
   tenant: TenantContext,
@@ -286,49 +354,38 @@ export async function getCases(
 
   if (prisma) {
     try {
-      const takeLimit = filters?.take ? Math.min(filters.take, 200) : 100;
+      const takeLimit = filters?.take !== undefined ? Math.min(filters.take, 200) : 100;
+      const where = buildCaseWhereInput(tenant, filters);
+
       const dbCases = await prisma.case.findMany({
-        where: {
-          organizationId: tenant.organizationId,
-          ...(filters?.status ? { status: filters.status } : {}),
-          ...(filters?.search
-            ? {
-                OR: [
-                  { caseNumber: { contains: filters.search, mode: "insensitive" } },
-                  { title: { contains: filters.search, mode: "insensitive" } },
-                ],
-              }
-            : {}),
-        },
+        where,
         orderBy: { createdAt: "desc" },
         take: takeLimit,
         ...(filters?.skip ? { skip: filters.skip } : {}),
         ...(filters?.cursor ? { cursor: { id: filters.cursor }, skip: 1 } : {}),
       });
 
-      if (dbCases.length > 0) {
-        return dbCases.map((c) => {
-          const meta = unpackCaseMetadata(c.partiesSummary);
-          return {
-            id: c.id,
-            organizationId: c.organizationId,
-            caseNumber: c.caseNumber,
-            title: c.title,
-            matterType: c.matterType as MatterType,
-            status: c.status as CaseStatus,
-            description: c.description,
-            notaryName: c.notaryName,
-            assignedClerk: c.assignedClerk,
-            targetDate: c.targetDate ? c.targetDate.toISOString() : null,
-            parties: meta.parties,
-            propertyDetails: meta.propertyDetails,
-            financials: meta.financials,
-            specialDetails: meta.specialDetails,
-            createdAt: c.createdAt.toISOString(),
-            updatedAt: c.updatedAt.toISOString(),
-          };
-        });
-      }
+      return dbCases.map((c) => {
+        const meta = unpackCaseMetadata(c.partiesSummary);
+        return {
+          id: c.id,
+          organizationId: c.organizationId,
+          caseNumber: c.caseNumber,
+          title: c.title,
+          matterType: c.matterType as MatterType,
+          status: c.status as CaseStatus,
+          description: c.description,
+          notaryName: c.notaryName,
+          assignedClerk: c.assignedClerk,
+          targetDate: c.targetDate ? c.targetDate.toISOString() : null,
+          parties: meta.parties,
+          propertyDetails: meta.propertyDetails,
+          financials: meta.financials,
+          specialDetails: meta.specialDetails,
+          createdAt: c.createdAt.toISOString(),
+          updatedAt: c.updatedAt.toISOString(),
+        };
+      });
     } catch (err) {
       console.warn("Database query failed (schema might not be migrated yet), falling back to demo store:", err);
     }
@@ -343,6 +400,23 @@ export async function getCases(
     cases = cases.filter((c) => c.status === filters.status);
   }
 
+  if (filters?.matterType) {
+    cases = cases.filter((c) => c.matterType === filters.matterType);
+  }
+
+  if (filters?.responsibility) {
+    const r = filters.responsibility.toLowerCase();
+    if (r === "unassigned" || r === "offen") {
+      cases = cases.filter((c) => !c.assignedClerk);
+    } else {
+      cases = cases.filter(
+        (c) =>
+          c.assignedClerk?.toLowerCase().includes(r) ||
+          c.notaryName?.toLowerCase().includes(r)
+      );
+    }
+  }
+
   if (filters?.search) {
     const q = filters.search.toLowerCase();
     cases = cases.filter(
@@ -353,7 +427,166 @@ export async function getCases(
     );
   }
 
-  return cases.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
+  const sorted = cases.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
+  const skip = filters?.skip || 0;
+  const take = filters?.take !== undefined ? Math.min(filters.take, 200) : 100;
+  return sorted.slice(skip, skip + take);
+}
+
+/**
+ * Counts total cases matching tenant filters for accurate pagination.
+ */
+export async function countCases(
+  tenant: TenantContext,
+  filters?: Omit<CaseFilters, "take" | "skip" | "cursor">
+): Promise<number> {
+  const prisma = getPrismaClient();
+
+  if (prisma) {
+    try {
+      const where = buildCaseWhereInput(tenant, filters);
+      return await prisma.case.count({ where });
+    } catch (err) {
+      console.warn("Database count failed, checking fallback:", err);
+    }
+  }
+
+  // Tenant-scoped fallback
+  let cases = Array.from(memoryCasesStore.values()).filter(
+    (c) => c.organizationId === tenant.organizationId
+  );
+
+  if (filters?.status) {
+    cases = cases.filter((c) => c.status === filters.status);
+  }
+
+  if (filters?.matterType) {
+    cases = cases.filter((c) => c.matterType === filters.matterType);
+  }
+
+  if (filters?.responsibility) {
+    const r = filters.responsibility.toLowerCase();
+    if (r === "unassigned" || r === "offen") {
+      cases = cases.filter((c) => !c.assignedClerk);
+    } else {
+      cases = cases.filter(
+        (c) =>
+          c.assignedClerk?.toLowerCase().includes(r) ||
+          c.notaryName?.toLowerCase().includes(r)
+      );
+    }
+  }
+
+  if (filters?.search) {
+    const q = filters.search.toLowerCase();
+    cases = cases.filter(
+      (c) =>
+        c.caseNumber.toLowerCase().includes(q) ||
+        c.title.toLowerCase().includes(q) ||
+        c.description?.toLowerCase().includes(q)
+    );
+  }
+
+  return cases.length;
+}
+
+interface CacheEntry<T> {
+  data: T;
+  cachedAt: number;
+}
+
+const assigneesCache = new Map<string, CacheEntry<string[]>>();
+const statusCountsCache = new Map<string, CacheEntry<Record<string, number>>>();
+
+const ASSIGNEES_CACHE_TTL_MS = 60 * 1000; // 60s
+const STATUS_COUNTS_CACHE_TTL_MS = 15 * 1000; // 15s
+
+export function invalidateTenantCaches(organizationId: string) {
+  assigneesCache.delete(organizationId);
+  statusCountsCache.delete(organizationId);
+}
+
+/**
+ * Returns distinct assignees (clerks and notaries) available in the tenant for filter dropdowns.
+ * Results are cached in memory for 60s to avoid redundant queries during navigation.
+ */
+export async function getAvailableAssignees(
+  tenant: TenantContext,
+  forceRefresh = false
+): Promise<string[]> {
+  const orgId = tenant.organizationId;
+  const cached = assigneesCache.get(orgId);
+  if (!forceRefresh && cached && Date.now() - cached.cachedAt < ASSIGNEES_CACHE_TTL_MS) {
+    return cached.data;
+  }
+
+  const prisma = getPrismaClient();
+  const assignees = new Set<string>();
+
+  if (prisma) {
+    try {
+      const members = await prisma.organizationMember.findMany({
+        where: { organizationId: tenant.organizationId },
+        include: { user: true },
+      });
+      for (const m of members) {
+        if (m.user?.fullName && m.user.fullName.trim()) {
+          assignees.add(m.user.fullName.trim());
+        }
+      }
+
+      const clerks = await prisma.case.findMany({
+        where: {
+          organizationId: tenant.organizationId,
+          assignedClerk: { not: null },
+        },
+        select: { assignedClerk: true },
+        distinct: ["assignedClerk"],
+      });
+      for (const c of clerks) {
+        if (c.assignedClerk && c.assignedClerk.trim()) {
+          assignees.add(c.assignedClerk.trim());
+        }
+      }
+
+      const notaries = await prisma.case.findMany({
+        where: {
+          organizationId: tenant.organizationId,
+          notaryName: { not: null },
+        },
+        select: { notaryName: true },
+        distinct: ["notaryName"],
+      });
+      for (const n of notaries) {
+        if (n.notaryName && n.notaryName.trim()) {
+          assignees.add(n.notaryName.trim());
+        }
+      }
+    } catch (err) {
+      console.warn("Could not query assignees from DB:", err);
+    }
+  }
+
+  // Fallback check memory store
+  if (assignees.size === 0) {
+    Array.from(memoryCasesStore.values())
+      .filter((c) => c.organizationId === tenant.organizationId)
+      .forEach((c) => {
+        if (c.assignedClerk) assignees.add(c.assignedClerk);
+        if (c.notaryName) assignees.add(c.notaryName);
+      });
+  }
+
+  if (assignees.size === 0) {
+    assignees.add("Stefanie Bauer");
+    assignees.add("Michael Köhler");
+    assignees.add("Katharina Lind");
+    assignees.add("Dr. Johannes Weiss");
+  }
+
+  const result = Array.from(assignees).sort((a, b) => a.localeCompare(b, "de"));
+  assigneesCache.set(orgId, { data: result, cachedAt: Date.now() });
+  return result;
 }
 
 /**
@@ -464,6 +697,8 @@ export async function createCase(
         console.warn("Could not log audit event:", auditErr);
       }
 
+      invalidateTenantCaches(tenant.organizationId);
+
       return {
         id: created.id,
         organizationId: created.organizationId,
@@ -514,7 +749,122 @@ export async function createCase(
   return record;
 }
 
-export async function getCaseStatusCounts(tenant: TenantContext): Promise<Record<string, number>> {
+/**
+ * Updates an existing case, strictly scoped to the tenant organization.
+ */
+export async function updateCase(
+  tenant: TenantContext,
+  caseId: string,
+  input: Partial<CreateCaseInput>,
+  expectedUpdatedAt?: string
+): Promise<CaseRecord> {
+  if (tenant.userRole === "VIEWER") throw new Error("Mit Lesezugriff können Sie keine Akten bearbeiten.");
+  const prisma = getPrismaClient();
+
+  if (prisma) {
+    const existing = await prisma.case.findFirst({
+      where: { id: caseId, organizationId: tenant.organizationId },
+    });
+
+    if (!existing) {
+      throw new CaseNotFoundError(caseId);
+    }
+
+    assertTenantOwnership(existing.organizationId, tenant);
+    if (expectedUpdatedAt && existing.updatedAt.toISOString() !== expectedUpdatedAt) {
+      throw new Error("Die Akte wurde zwischenzeitlich geändert. Ihre Eingaben wurden nicht überschrieben. Bitte öffnen Sie die aktuelle Akte in einem neuen Tab und gleichen Sie die Änderungen ab.");
+    }
+    const existingMeta = unpackCaseMetadata(existing.partiesSummary);
+    const updatedPayload = {
+      parties: input.parties ?? existingMeta.parties,
+      propertyDetails: input.propertyDetails !== undefined ? input.propertyDetails : existingMeta.propertyDetails,
+      financials: input.financials !== undefined ? input.financials : existingMeta.financials,
+      specialDetails: input.specialDetails !== undefined ? input.specialDetails : existingMeta.specialDetails,
+    };
+
+    const updated = await prisma.$transaction(async (tx) => {
+      const saved = await tx.case.update({
+        where: { id: caseId, organizationId: tenant.organizationId, updatedAt: existing.updatedAt },
+        data: {
+          caseNumber: input.caseNumber ?? existing.caseNumber,
+          title: input.title ?? existing.title,
+          matterType: input.matterType ?? existing.matterType,
+          status: input.status ?? existing.status,
+          description: input.description !== undefined ? input.description : existing.description,
+          notaryName: input.notaryName !== undefined ? input.notaryName : existing.notaryName,
+          assignedClerk: input.assignedClerk !== undefined ? input.assignedClerk : existing.assignedClerk,
+          targetDate: input.targetDate !== undefined ? (input.targetDate ? new Date(input.targetDate) : null) : existing.targetDate,
+          partiesSummary: updatedPayload,
+          updatedAt: new Date(Math.max(Date.now(), existing.updatedAt.getTime() + 1)),
+        },
+      });
+      await tx.auditEvent.create({ data: {
+        organizationId: tenant.organizationId, userId: tenant.userId,
+        action: "CASE_UPDATED", entityType: "Case", entityId: caseId,
+        metadata: { caseNumber: saved.caseNumber, changedFields: Object.keys(input) },
+      } });
+      return saved;
+    }).catch((error: unknown) => {
+      if (error && typeof error === "object" && "code" in error && error.code === "P2025") {
+        throw new Error("Die Akte wurde zwischenzeitlich geändert oder gelöscht. Bitte laden Sie den aktuellen Stand neu.");
+      }
+      throw error;
+    });
+
+    invalidateTenantCaches(tenant.organizationId);
+
+    return {
+      id: updated.id,
+      organizationId: updated.organizationId,
+      caseNumber: updated.caseNumber,
+      title: updated.title,
+      matterType: updated.matterType as MatterType,
+      status: updated.status as CaseStatus,
+      description: updated.description,
+      notaryName: updated.notaryName,
+      assignedClerk: updated.assignedClerk,
+      targetDate: updated.targetDate ? updated.targetDate.toISOString() : null,
+      parties: updatedPayload.parties || [],
+      propertyDetails: updatedPayload.propertyDetails || null,
+      financials: updatedPayload.financials || null,
+      specialDetails: updatedPayload.specialDetails || null,
+      createdAt: updated.createdAt.toISOString(),
+      updatedAt: updated.updatedAt.toISOString(),
+    };
+  }
+
+  // Memory fallback
+  const existing = memoryCasesStore.get(caseId);
+  if (!existing || existing.organizationId !== tenant.organizationId) {
+    throw new CaseNotFoundError(caseId);
+  }
+
+  if (expectedUpdatedAt && existing.updatedAt !== expectedUpdatedAt) throw new Error("Die Akte wurde zwischenzeitlich geändert. Bitte laden Sie den aktuellen Stand neu.");
+  const updated: CaseRecord = {
+    ...existing,
+    ...input,
+    propertyDetails: input.propertyDetails !== undefined ? input.propertyDetails : existing.propertyDetails,
+    financials: input.financials !== undefined ? input.financials : existing.financials,
+    specialDetails: input.specialDetails !== undefined ? input.specialDetails : existing.specialDetails,
+    parties: input.parties !== undefined ? input.parties : existing.parties,
+    updatedAt: new Date(Math.max(Date.now(), Date.parse(existing.updatedAt) + 1)).toISOString(),
+  };
+
+  memoryCasesStore.set(caseId, updated);
+  invalidateTenantCaches(tenant.organizationId);
+  return updated;
+}
+
+export async function getCaseStatusCounts(
+  tenant: TenantContext,
+  forceRefresh = false
+): Promise<Record<string, number>> {
+  const orgId = tenant.organizationId;
+  const cached = statusCountsCache.get(orgId);
+  if (!forceRefresh && cached && Date.now() - cached.cachedAt < STATUS_COUNTS_CACHE_TTL_MS) {
+    return { ...cached.data };
+  }
+
   const prisma = getPrismaClient();
   const counts: Record<string, number> = {
     ALL: 0,
@@ -542,6 +892,7 @@ export async function getCaseStatusCounts(tenant: TenantContext): Promise<Record
         }
       }
       counts.ALL = total;
+      statusCountsCache.set(orgId, { data: counts, cachedAt: Date.now() });
       return counts;
     } catch (err) {
       console.warn("Database groupBy failed, falling back to memory store:", err);
@@ -558,6 +909,7 @@ export async function getCaseStatusCounts(tenant: TenantContext): Promise<Record
       counts[c.status] += 1;
     }
   }
+  statusCountsCache.set(orgId, { data: counts, cachedAt: Date.now() });
   return counts;
 }
 
@@ -656,6 +1008,7 @@ export async function deleteCase(
 
     // Also remove from memory store if present
     memoryCasesStore.delete(caseId);
+    invalidateTenantCaches(tenant.organizationId);
 
     // 4. Audit log the deletion
     try {

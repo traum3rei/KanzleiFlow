@@ -3,11 +3,12 @@
 import { revalidatePath } from "next/cache";
 import { getTenantContext } from "@/lib/auth/tenant";
 import { createCaseSchema, MatterType, CaseStatus } from "@/lib/validations/case";
-import { createCase, deleteCase } from "@/lib/services/case-service";
+import { createCase, deleteCase, updateCase } from "@/lib/services/case-service";
 
 export interface CreateCaseActionState {
   success: boolean;
   caseId?: string;
+  updatedAt?: string;
   errors?: Record<string, string>;
   message?: string;
 }
@@ -16,20 +17,33 @@ export async function createCaseAction(
   _prevState: CreateCaseActionState,
   formData: FormData
 ): Promise<CreateCaseActionState> {
+  return saveCaseForm(formData);
+}
+
+export async function updateCaseAction(
+  caseId: string,
+  _previous: CreateCaseActionState,
+  formData: FormData
+): Promise<CreateCaseActionState> {
+  return saveCaseForm(formData, caseId);
+}
+
+async function saveCaseForm(formData: FormData, caseId?: string): Promise<CreateCaseActionState> {
   try {
     // 1. Resolve server-verified tenant context.
     // SECURITY: We NEVER accept an organization ID from formData.
     const tenant = await getTenantContext();
+    if (tenant.userRole === "VIEWER") return { success: false, message: "Mit Lesezugriff können Sie keine Akten speichern." };
 
     // 2. Extract inputs from formData
     const caseNumber = formData.get("caseNumber")?.toString().trim() || "";
     const title = formData.get("title")?.toString().trim() || "";
     const matterType = formData.get("matterType")?.toString() as MatterType;
     const status = (formData.get("status")?.toString() as CaseStatus) || "DRAFT";
-    const description = formData.get("description")?.toString().trim() || undefined;
-    const notaryName = formData.get("notaryName")?.toString().trim() || undefined;
-    const assignedClerk = formData.get("assignedClerk")?.toString().trim() || undefined;
-    const targetDate = formData.get("targetDate")?.toString().trim() || undefined;
+    const description = formData.get("description")?.toString().trim() || (caseId ? "" : undefined);
+    const notaryName = formData.get("notaryName")?.toString().trim() || (caseId ? "" : undefined);
+    const assignedClerk = formData.get("assignedClerk")?.toString().trim() || (caseId ? "" : undefined);
+    const targetDate = formData.get("targetDate")?.toString().trim() || (caseId ? "" : undefined);
 
     // Parse parties if provided
     const partyRoles = formData.getAll("partyRole").map(String);
@@ -39,11 +53,12 @@ export async function createCaseAction(
     const partyTaxIds = formData.getAll("partyTaxId").map(String);
     const partyEmails = formData.getAll("partyEmail").map(String);
     const partyPhones = formData.getAll("partyPhone").map(String);
+    const partyNationalities = formData.getAll("partyNationality").map(String);
     const partyMaritalStatuses = formData.getAll("partyMaritalStatus").map(String);
 
     const parties = [];
     for (let i = 0; i < partyNames.length; i++) {
-      if (partyNames[i]?.trim()) {
+      if (caseId || partyNames[i]?.trim()) {
         parties.push({
           role: partyRoles[i]?.trim() || "Beteiligte/r",
           name: partyNames[i].trim(),
@@ -53,6 +68,7 @@ export async function createCaseAction(
           email: partyEmails[i]?.trim() || undefined,
           phone: partyPhones[i]?.trim() || undefined,
           maritalStatus: partyMaritalStatuses[i]?.trim() || undefined,
+          nationality: partyNationalities[i]?.trim() || undefined,
         });
       }
     }
@@ -91,7 +107,7 @@ export async function createCaseAction(
     const financialExistingEncumbrances = formData.get("financialExistingEncumbrances")?.toString().trim();
 
     const hasFinancials = Boolean(
-      financialDealValueStr || financialPaymentDueDate || financialExistingEncumbrances
+      financialDealValueStr || financialPaymentDueDate || financialExistingEncumbrances || financialCurrency !== "EUR"
     );
 
     const financials = hasFinancials
@@ -156,13 +172,27 @@ export async function createCaseAction(
     }
 
     // 4. Persistence
-    const createdCase = await createCase(tenant, validationResult.data);
+    const expectedUpdatedAt = formData.get("expectedUpdatedAt")?.toString();
+    if (caseId && (!expectedUpdatedAt || isNaN(Date.parse(expectedUpdatedAt)))) {
+      return { success: false, message: "Der Bearbeitungsstand fehlt. Bitte öffnen Sie die Akte erneut." };
+    }
+    const input = validationResult.data;
+    // Empty detail forms explicitly clear old values instead of restoring them.
+    if (caseId) {
+      input.propertyDetails ??= {};
+      input.financials ??= { currency: "EUR" };
+      input.specialDetails ??= {};
+    }
+    const createdCase = caseId
+      ? await updateCase(tenant, caseId, input, expectedUpdatedAt)
+      : await createCase(tenant, input);
 
     // 5. Revalidate cache
     try {
       revalidatePath("/");
       revalidatePath("/cases");
       revalidatePath(`/cases/${createdCase.id}`);
+      revalidatePath(`/cases/${createdCase.id}/edit`);
     } catch {
       // Ignore when running outside Next.js request context (e.g. tests)
     }
@@ -170,13 +200,16 @@ export async function createCaseAction(
     return {
       success: true,
       caseId: createdCase.id,
-      message: `Akte ${createdCase.caseNumber} erfolgreich angelegt.`,
+      updatedAt: createdCase.updatedAt,
+      message: `Akte ${createdCase.caseNumber} erfolgreich ${caseId ? "gespeichert" : "angelegt"}.`,
     };
   } catch (error: unknown) {
     console.error("Error creating case:", error);
     return {
       success: false,
-      message: error instanceof Error ? error.message : "Ein unerwarteter Fehler ist aufgetreten.",
+      message: error && typeof error === "object" && "code" in error && error.code === "P2002"
+        ? "Dieses Aktenzeichen ist bereits vergeben. Bitte wählen Sie ein anderes."
+        : error instanceof Error ? error.message : "Speichern fehlgeschlagen. Ihre Eingaben bleiben erhalten. Bitte erneut versuchen.",
     };
   }
 }

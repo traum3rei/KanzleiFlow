@@ -14,8 +14,10 @@ import {
   triggerExtraction,
   saveCorrections,
   approveExtraction,
+  revertToReview,
   ExtractionServiceError,
 } from "@/lib/services/extraction-service";
+import type { ExtractedLegalFields } from "@/lib/ai/schema";
 import { generateDraft, DraftGenerationError } from "@/lib/services/draft-service";
 
 export interface ActionResult<T = unknown> {
@@ -159,11 +161,12 @@ export async function saveCorrectionsAction(
 export async function approveExtractionAction(
   documentId: string,
   caseId: string,
-  reviewNotes?: string
+  reviewNotes?: string,
+  reviewedData?: ExtractedLegalFields
 ): Promise<ActionResult> {
   try {
     const tenant = await getTenantContext();
-    const result = await approveExtraction(tenant, documentId, reviewNotes);
+    const result = await approveExtraction(tenant, documentId, reviewNotes, reviewedData);
 
     revalidatePath(`/cases/${caseId}`);
     return { success: true, data: result };
@@ -171,6 +174,27 @@ export async function approveExtractionAction(
     return {
       success: false,
       error: (err as Error).message || "Freigabe fehlgeschlagen.",
+    };
+  }
+}
+
+/**
+ * Server action to unlock an approved or drafted document back to NEEDS_REVIEW.
+ */
+export async function revertToReviewAction(
+  documentId: string,
+  caseId: string
+): Promise<ActionResult> {
+  try {
+    const tenant = await getTenantContext();
+    const result = await revertToReview(tenant, documentId);
+
+    revalidatePath(`/cases/${caseId}`);
+    return { success: true, data: result };
+  } catch (err: unknown) {
+    return {
+      success: false,
+      error: (err as Error).message || "Freigabe zurücksetzen fehlgeschlagen.",
     };
   }
 }

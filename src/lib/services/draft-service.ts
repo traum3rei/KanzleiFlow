@@ -67,32 +67,31 @@ export async function generateDraft(
     );
   }
 
-  // Calculate next version number for this document/case
-  const latestDraft = await prisma.generatedDraft.findFirst({
-    where: {
-      organizationId: tenant.organizationId,
-      caseId: doc.caseId,
-      documentId: doc.id,
-    },
-    orderBy: { version: "desc" },
-  });
-  const nextVersion = (latestDraft?.version ?? 0) + 1;
-
-  // Validate state transition to GENERATING
   assertValidTransition(doc.workflowStatus, "GENERATING");
-
-  await prisma.$transaction([
-    prisma.document.update({
-      where: { id: documentId },
+  await prisma.$transaction(async (tx) => {
+    const claimed = await tx.document.updateMany({
+      where: { id: documentId, organizationId: tenant.organizationId, workflowStatus: doc.workflowStatus, updatedAt: doc.updatedAt },
       data: { workflowStatus: "GENERATING" },
-    }),
-    prisma.extractionResult.update({
-      where: { documentId },
+    });
+    if (claimed.count !== 1) throw new DraftGenerationError("Für dieses Dokument läuft bereits eine Bearbeitung. Bitte aktualisieren Sie die Ansicht.");
+    await tx.extractionResult.update({
+      where: { documentId, organizationId: tenant.organizationId },
       data: { workflowStatus: "GENERATING" },
-    }),
-  ]);
+    });
+  });
 
   try {
+    // Calculate next version number for this document/case
+    const latestDraft = await prisma.generatedDraft.findFirst({
+      where: {
+        organizationId: tenant.organizationId,
+        caseId: doc.caseId,
+        documentId: doc.id,
+      },
+      orderBy: { version: "desc" },
+    });
+    const nextVersion = (latestDraft?.version ?? 0) + 1;
+
     const approvedRaw = doc.extractionResult?.approvedData;
     if (!approvedRaw) {
       throw new Error(
@@ -131,7 +130,14 @@ export async function generateDraft(
         templateVersion: TEMPLATE_VERSION,
         title: draftTitle,
         content: renderedContent,
-        approvedDataSnapshot: approvedData as unknown as object,
+        approvedDataSnapshot: {
+          ...approvedData,
+          _generationContext: {
+            caseNumber: doc.case.caseNumber, caseTitle: doc.case.title,
+            notaryName: doc.case.notaryName, assignedClerk: doc.case.assignedClerk,
+            reviewNotes: doc.extractionResult?.reviewNotes, version: nextVersion,
+          },
+        } as unknown as object,
         version: nextVersion,
         status: "DRAFT",
       },
@@ -255,13 +261,12 @@ export async function getDraftDocxBuffer(
   }
 
   const approvedData = ExtractedLegalFieldsSchema.parse(draft.approvedDataSnapshot);
-  const buffer = await generateDocxDraft(approvedData, {
-    caseNumber: draft.case.caseNumber,
-    caseTitle: draft.case.title,
-    notaryName: draft.case.notaryName,
-    assignedClerk: draft.case.assignedClerk,
-    version: draft.version,
-  });
+  const snapshot = draft.approvedDataSnapshot as Record<string, unknown>;
+  const context = snapshot._generationContext as import("@/lib/docx/generator").DocxTemplateContext | undefined;
+  if (!context?.caseNumber || !context.caseTitle) {
+    throw new DraftGenerationError("Die Originaldatei dieser historischen Version fehlt. Eine unveränderte Wiederherstellung ist ohne gespeicherte Erstellungsdaten nicht möglich.");
+  }
+  const buffer = await generateDocxDraft(approvedData, context);
 
   // Cache back to storage
   await saveDraftDocx(draft.organizationId, draft.id, draft.version, buffer);

@@ -1,5 +1,3 @@
-import { config } from "dotenv";
-config({ path: ".env.local" });
 import { describe, it, expect, beforeEach, afterEach } from "vitest";
 import { DEMO_NOTARIAT_CONTEXT, TenantContext } from "@/lib/auth/tenant";
 import { createCase } from "./case-service";
@@ -13,6 +11,7 @@ import {
   triggerExtraction,
   saveCorrections,
   approveExtraction,
+  revertToReview,
 } from "./extraction-service";
 import {
   generateDraft,
@@ -140,6 +139,16 @@ describe("Document Workflow Full Vertical Slice (End-to-End)", () => {
     expect(retrievedDraft?.id).toBe(draft.id);
 
     await expect(getDraftById(foreignTenant, draft.id)).rejects.toThrow(
+      /Tenant Isolation Violation/
+    );
+
+    // 10. Revert to review from DRAFT_READY: Unlocks editing for corrections
+    await revertToReview(DEMO_NOTARIAT_CONTEXT, doc.id);
+    const docAfterRevert = await getDocumentById(DEMO_NOTARIAT_CONTEXT, doc.id);
+    expect(docAfterRevert.workflowStatus).toBe("NEEDS_REVIEW");
+
+    // Cross-tenant protection on revert
+    await expect(revertToReview(foreignTenant, doc.id)).rejects.toThrow(
       /Tenant Isolation Violation/
     );
   });

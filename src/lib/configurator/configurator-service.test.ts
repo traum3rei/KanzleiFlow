@@ -1,6 +1,5 @@
+import JSZip from "jszip";
 import { describe, it, expect, beforeEach } from "vitest";
-import { config } from "dotenv";
-config({ path: ".env.local" });
 
 import { getPrismaClient } from "@/lib/db";
 import { TenantContext } from "@/lib/auth/tenant";
@@ -259,4 +258,27 @@ describe("Structured Document Configurator — Service & Integration Suite", () 
     // Tenant B attempts to download Tenant A's generated version
     await expect(getGeneratedVersionDocx(TENANT_B, generatedVersion.id)).rejects.toThrow();
   });
+  it("does not create competing versions or overwrite files on simultaneous generation", async () => {
+    const target = await createCase(TENANT_A, { caseNumber: `RACE-${Date.now()}`, title: "Concurrent configuration generation", matterType: "REAL_ESTATE", status: "DRAFT", parties: [] });
+    const config = await createConfiguration(TENANT_A, target.id, getDefaultConfigurationData(target.caseNumber));
+    const results = await Promise.allSettled([generateConfiguredDraft(TENANT_A, config.id), generateConfiguredDraft(TENANT_A, config.id)]);
+    const fulfilled = results.filter((result) => result.status === "fulfilled");
+    expect(fulfilled).toHaveLength(1);
+    expect(await prisma!.generatedDocumentVersion.count({ where: { configurationId: config.id, organizationId: TENANT_A.organizationId } })).toBe(1);
+  });
+
+  it("recovers a historical configured DOCX using its original case number", async () => {
+    const target = await createCase(TENANT_A, { caseNumber: `HISTORY-${Date.now()}`, title: "Historical configuration", matterType: "REAL_ESTATE", status: "DRAFT", parties: [] });
+    const config = await createConfiguration(TENANT_A, target.id, getDefaultConfigurationData(target.caseNumber));
+    const { generatedVersion } = await generateConfiguredDraft(TENANT_A, config.id);
+    const { unlink } = await import("node:fs/promises");
+    const path = await import("node:path");
+    await unlink(path.resolve(process.env.STORAGE_ROOT!, "drafts", generatedVersion.docxStoragePath!));
+    await prisma!.case.update({ where: { id: target.id, organizationId: TENANT_A.organizationId }, data: { caseNumber: `LATER-${Date.now()}` } });
+    const result = await getGeneratedVersionDocx(TENANT_A, generatedVersion.id);
+    const zip = await JSZip.loadAsync(result.buffer);
+    expect(await zip.file("word/document.xml")!.async("text")).toContain(target.caseNumber);
+    expect(result.fileName).toContain(target.caseNumber);
+  });
+
 });

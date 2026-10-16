@@ -246,7 +246,8 @@ export async function saveCorrections(
 export async function approveExtraction(
   tenant: TenantContext,
   documentId: string,
-  reviewNotes?: string
+  reviewNotes?: string,
+  reviewedData?: ExtractedLegalFields
 ): Promise<ExtractedLegalFields> {
   const prisma = getPrismaClient();
   if (!prisma) throw new Error("Datenbankverbindung nicht verfügbar.");
@@ -262,7 +263,7 @@ export async function approveExtraction(
   // Validate state transition
   assertValidTransition(doc.workflowStatus, "APPROVED");
 
-  const currentData = doc.extractionResult?.extractedData;
+  const currentData = reviewedData ?? doc.extractionResult?.extractedData;
   if (!currentData) {
     throw new ExtractionServiceError(
       "Es liegen keine extrahierten Daten zur Freigabe vor. Bitte führen Sie zuerst die Extraktion durch."
@@ -282,6 +283,7 @@ export async function approveExtraction(
       where: { documentId },
       data: {
         workflowStatus: "APPROVED",
+        extractedData: validatedData as unknown as object,
         approvedData: validatedData as unknown as object,
         reviewedById: tenant.userId,
         reviewedAt: now,
@@ -310,4 +312,59 @@ export async function approveExtraction(
   }
 
   return validatedData;
+}
+
+/**
+ * Unlocks an approved or drafted document back to NEEDS_REVIEW so clerks
+ * can modify party data, tax IDs, cadastral values or notes.
+ * Valid transitions: APPROVED -> NEEDS_REVIEW, DRAFT_READY -> NEEDS_REVIEW.
+ */
+export async function revertToReview(
+  tenant: TenantContext,
+  documentId: string
+): Promise<{ success: boolean; workflowStatus: string }> {
+  const prisma = getPrismaClient();
+  if (!prisma) throw new Error("Datenbankverbindung nicht verfügbar.");
+
+  const doc = await prisma.document.findUnique({
+    where: { id: documentId },
+    include: { extractionResult: true },
+  });
+
+  if (!doc) throw new ExtractionServiceError(`Dokument '${documentId}' nicht gefunden.`);
+  assertTenantOwnership(tenant, doc.organizationId);
+
+  // Validate state transition (APPROVED -> NEEDS_REVIEW or DRAFT_READY -> NEEDS_REVIEW)
+  assertValidTransition(doc.workflowStatus, "NEEDS_REVIEW");
+
+  await prisma.$transaction([
+    prisma.document.update({
+      where: { id: documentId },
+      data: { workflowStatus: "NEEDS_REVIEW" },
+    }),
+    prisma.extractionResult.update({
+      where: { documentId },
+      data: { workflowStatus: "NEEDS_REVIEW" },
+    }),
+  ]);
+
+  try {
+    await prisma.auditEvent.create({
+      data: {
+        organizationId: tenant.organizationId,
+        userId: tenant.userId,
+        action: "EXTRACTION_REVERTED_TO_REVIEW",
+        entityType: "Document",
+        entityId: documentId,
+        metadata: {
+          previousStatus: doc.workflowStatus,
+          revertedAt: new Date().toISOString(),
+        },
+      },
+    });
+  } catch (auditErr) {
+    console.warn("Audit-Log fehlgeschlagen:", auditErr);
+  }
+
+  return { success: true, workflowStatus: "NEEDS_REVIEW" };
 }

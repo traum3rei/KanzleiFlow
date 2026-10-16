@@ -1,5 +1,3 @@
-import { config } from "dotenv";
-config({ path: ".env.local" });
 import { describe, it, expect, beforeEach, afterEach } from "vitest";
 import JSZip from "jszip";
 import {
@@ -400,4 +398,27 @@ describe("Milestone: DOCX Generation and Document Lifecycle", () => {
     const docRecovered = await prisma?.document.findUnique({ where: { id: doc.id } });
     expect(docRecovered?.workflowStatus).toBe("DRAFT_READY");
   });
+  it("claims generation atomically so double submission creates only one draft", async () => {
+    const target = await createCase(DEMO_NOTARIAT_CONTEXT, { caseNumber: randomCaseNumber(), title: "Concurrent draft generation", matterType: "REAL_ESTATE", status: "DRAFT", parties: [] });
+    const doc = await prepareApprovedDocument(target.id);
+    const results = await Promise.allSettled([generateDraft(DEMO_NOTARIAT_CONTEXT, doc.id), generateDraft(DEMO_NOTARIAT_CONTEXT, doc.id)]);
+    expect(results.filter((result) => result.status === "fulfilled")).toHaveLength(1);
+    expect(await prisma!.generatedDraft.count({ where: { documentId: doc.id, organizationId: DEMO_NOTARIAT_CONTEXT.organizationId } })).toBe(1);
+  });
+
+  it("recovers missing DOCX from immutable creation metadata after case edits", async () => {
+    const target = await createCase(DEMO_NOTARIAT_CONTEXT, { caseNumber: randomCaseNumber(), title: "Historischer Originaltitel", matterType: "REAL_ESTATE", status: "DRAFT", parties: [] });
+    const doc = await prepareApprovedDocument(target.id);
+    const draft = await generateDraft(DEMO_NOTARIAT_CONTEXT, doc.id);
+    const { unlink } = await import("node:fs/promises");
+    const path = await import("node:path");
+    await unlink(path.resolve(process.env.STORAGE_ROOT!, "drafts", `${draft.organizationId}_draft_${draft.id}_v${draft.version}.docx`));
+    await prisma!.case.update({ where: { id: target.id, organizationId: DEMO_NOTARIAT_CONTEXT.organizationId }, data: { title: "Später geänderter Titel" } });
+    const recovered = await getDraftDocxBuffer(DEMO_NOTARIAT_CONTEXT, draft.id);
+    const zip = await JSZip.loadAsync(recovered.buffer);
+    const xml = await zip.file("word/document.xml")!.async("text");
+    expect(xml).toContain("Historischer Originaltitel");
+    expect(xml).not.toContain("Später geänderter Titel");
+  });
+
 });

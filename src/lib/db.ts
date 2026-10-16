@@ -76,14 +76,37 @@ export function getDatabasePoolMetrics(): {
   };
 }
 
+interface CachedDbStatus {
+  connected: boolean;
+  message: string;
+  hasTables?: boolean;
+  cachedAt: number;
+}
+
+let cachedDbStatus: CachedDbStatus | null = null;
+const DB_STATUS_CACHE_TTL_MS = 60 * 1000; // 60 seconds
+
 /**
  * Test whether the database connection is live and reachable.
+ * Uses a 60-second in-memory cache to prevent costly remote round-trips on every page navigation.
  */
-export async function testDatabaseConnection(): Promise<{
+export async function testDatabaseConnection(forceRefresh = false): Promise<{
   connected: boolean;
   message: string;
   hasTables?: boolean;
 }> {
+  if (
+    !forceRefresh &&
+    cachedDbStatus &&
+    Date.now() - cachedDbStatus.cachedAt < DB_STATUS_CACHE_TTL_MS
+  ) {
+    return {
+      connected: cachedDbStatus.connected,
+      message: cachedDbStatus.message,
+      hasTables: cachedDbStatus.hasTables,
+    };
+  }
+
   const client = getPrismaClient();
   if (!client) {
     return {
@@ -103,14 +126,20 @@ export async function testDatabaseConnection(): Promise<{
     `;
 
     const hasTables = tables.length > 0;
-
-    return {
+    const result = {
       connected: true,
       message: hasTables
         ? "Connected to Supabase PostgreSQL (schema initialized)"
         : "Connected to Supabase PostgreSQL (awaiting initial migration)",
       hasTables,
     };
+
+    cachedDbStatus = {
+      ...result,
+      cachedAt: Date.now(),
+    };
+
+    return result;
   } catch (error: unknown) {
     const err = error as Error;
     return {

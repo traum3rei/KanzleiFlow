@@ -1,5 +1,3 @@
-import { config } from "dotenv";
-config({ path: ".env.local" });
 import { describe, it, expect } from "vitest";
 import { testDatabaseConnection, isDatabaseConfigured } from "./db";
 

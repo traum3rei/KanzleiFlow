@@ -3,6 +3,8 @@ import { TenantContext } from "@/lib/auth/tenant";
 import { BackgroundJobRecord, JobType } from "./types";
 import { triggerExtraction } from "@/lib/services/extraction-service";
 import { generateDraft } from "@/lib/services/draft-service";
+import { generateXnpExportPackage } from "@/lib/integrations/xnp/export-service";
+import { XnpExportType } from "@/lib/integrations/xnp/types";
 
 export interface WorkerProcessResult {
   processed: boolean;
@@ -180,11 +182,13 @@ export async function executeJobPayload(
     case "EXPORT_GENERATION": {
       const caseId = String(payload.caseId);
       if (!caseId) throw new Error("Fehlende caseId im Auftrags-Payload.");
-      return {
+      const exportType = (payload.exportType as XnpExportType) || "XNOTAR_GRUNDBUCH_XML";
+      return await generateXnpExportPackage(tenant, {
         caseId,
-        exportedAt: new Date().toISOString(),
-        archiveUrl: `/api/cases/${caseId}/export`,
-      };
+        exportType,
+        includeAttachments: payload.includeAttachments !== false,
+        allowPartialDraft: payload.allowPartialDraft === true,
+      });
     }
 
     default:

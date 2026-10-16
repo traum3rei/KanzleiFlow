@@ -65,11 +65,11 @@ export function DeleteCaseButton({
         <button
           type="button"
           onClick={() => setIsOpen(true)}
-          className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-[4px] border border-rose-300 dark:border-rose-900/60 bg-rose-50/50 dark:bg-rose-950/20 text-xs font-mono font-medium text-rose-700 dark:text-rose-400 hover:bg-rose-100/70 dark:hover:bg-rose-900/40 active:scale-[0.98] transition-transform duration-150 ${className}`}
+          className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg border border-rose-300 dark:border-rose-900/60 bg-rose-50/50 dark:bg-rose-950/20 text-sm font-sans font-medium text-rose-700 dark:text-rose-400 hover:bg-rose-100/70 dark:hover:bg-rose-900/40  transition-colors duration-150 ${className}`}
           title="Akte löschen"
         >
           <TrashIcon />
-          <span>akte löschen</span>
+          <span>Akte löschen</span>
         </button>
       )}
 
@@ -77,7 +77,7 @@ export function DeleteCaseButton({
         <button
           type="button"
           onClick={() => setIsOpen(true)}
-          className={`inline-flex items-center justify-center p-1.5 rounded-[4px] border border-transparent text-zinc-400 hover:text-rose-600 dark:hover:text-rose-400 hover:border-rose-300 dark:hover:border-rose-900/50 hover:bg-rose-50 dark:hover:bg-rose-950/30 active:scale-[0.98] transition-transform duration-150 text-xs ${className}`}
+          className={`inline-flex items-center justify-center p-1.5 rounded-lg border border-transparent text-zinc-400 hover:text-rose-600 dark:hover:text-rose-400 hover:border-rose-300 dark:hover:border-rose-900/50 hover:bg-rose-50 dark:hover:bg-rose-950/30  transition-colors duration-150 text-sm ${className}`}
           title="Akte löschen"
           aria-label="Akte löschen"
         >
@@ -89,10 +89,10 @@ export function DeleteCaseButton({
         <button
           type="button"
           onClick={() => setIsOpen(true)}
-          className={`inline-flex items-center justify-center gap-2 px-3 py-1.5 rounded-[4px] bg-rose-600 hover:bg-rose-700 text-white text-xs font-mono font-medium active:scale-[0.98] transition-transform duration-150 ${className}`}
+          className={`inline-flex items-center justify-center gap-2 px-3 py-1.5 rounded-lg bg-rose-600 hover:bg-rose-700 text-white text-sm font-sans font-medium  transition-colors duration-150 ${className}`}
         >
           <TrashIcon />
-          <span>akte löschen</span>
+          <span>Akte löschen</span>
         </button>
       )}
 
@@ -105,18 +105,18 @@ export function DeleteCaseButton({
           onClick={() => !isPending && setIsOpen(false)}
         >
           <div
-            className="bg-white dark:bg-zinc-950 rounded-[6px] border border-zinc-300 dark:border-zinc-800 shadow-2xl max-w-md w-full p-6 space-y-5 animate-in zoom-in-95 duration-150 font-mono"
+            className="bg-white dark:bg-zinc-950 rounded-[6px] border border-zinc-300 dark:border-zinc-800 shadow-2xl max-w-md w-full p-6 space-y-5 animate-in zoom-in-95 duration-150 font-sans"
             onClick={(e) => e.stopPropagation()}
           >
             <div className="flex items-start gap-3.5">
-              <div className="w-9 h-9 rounded-[4px] bg-rose-100 dark:bg-rose-950/80 text-rose-600 dark:text-rose-400 flex items-center justify-center shrink-0">
+              <div className="w-9 h-9 rounded-lg bg-rose-100 dark:bg-rose-950/80 text-rose-600 dark:text-rose-400 flex items-center justify-center shrink-0">
                 <AlertIcon />
               </div>
               <div className="space-y-1">
                 <h3 className="text-sm font-bold text-zinc-900 dark:text-white">
                   Akte unwiderruflich löschen?
                 </h3>
-                <p className="text-xs text-zinc-500 dark:text-zinc-400 leading-relaxed">
+                <p className="text-sm text-zinc-500 dark:text-zinc-400 leading-relaxed">
                   Möchten Sie die Akte{" "}
                   <strong className="text-zinc-900 dark:text-white font-semibold">
                     {caseNumber}
@@ -126,11 +126,11 @@ export function DeleteCaseButton({
               </div>
             </div>
 
-            <div className="p-3.5 rounded-[4px] bg-rose-50/70 dark:bg-rose-950/30 border border-rose-200 dark:border-rose-900/40 text-xs text-rose-900 dark:text-rose-200 space-y-1.5">
+            <div className="p-3.5 rounded-lg bg-rose-50/70 dark:bg-rose-950/30 border border-rose-200 dark:border-rose-900/40 text-sm text-rose-900 dark:text-rose-200 space-y-1.5">
               <p className="font-bold text-rose-700 dark:text-rose-300">
                 Folgen der Löschung:
               </p>
-              <ul className="list-disc list-inside space-y-1 text-[11px] text-rose-800 dark:text-rose-300/90 leading-relaxed">
+              <ul className="list-disc list-inside space-y-1 text-xs text-rose-800 dark:text-rose-300/90 leading-relaxed">
                 <li>Alle hochgeladenen Dokumente werden physisch vom Speicher gelöscht.</li>
                 <li>Zugehörige KI-Extraktionsergebnisse werden unwiderruflich bereinigt.</li>
                 <li>Alle generierten Entwurfsversionen (.docx & .txt) werden entfernt.</li>
@@ -139,7 +139,7 @@ export function DeleteCaseButton({
             </div>
 
             {errorMessage && (
-              <div className="p-3 rounded-[4px] bg-rose-100 dark:bg-rose-950/50 border border-rose-300 dark:border-rose-800 text-rose-800 dark:text-rose-200 text-xs font-semibold">
+              <div className="p-3 rounded-lg bg-rose-100 dark:bg-rose-950/50 border border-rose-300 dark:border-rose-800 text-rose-800 dark:text-rose-200 text-sm font-semibold">
                 {errorMessage}
               </div>
             )}
@@ -149,25 +149,25 @@ export function DeleteCaseButton({
                 type="button"
                 onClick={() => setIsOpen(false)}
                 disabled={isPending}
-                className="px-3 py-1.5 rounded-[4px] border border-zinc-300 dark:border-zinc-700 bg-white dark:bg-zinc-900 text-xs font-mono text-zinc-700 dark:text-zinc-300 hover:bg-zinc-100 dark:hover:bg-zinc-800 active:scale-[0.98] transition-transform duration-150 disabled:opacity-50"
+                className="px-3 py-1.5 rounded-lg border border-zinc-300 dark:border-zinc-700 bg-white dark:bg-zinc-900 text-sm font-sans text-zinc-700 dark:text-zinc-300 hover:bg-zinc-100 dark:hover:bg-zinc-800  transition-colors duration-150 disabled:opacity-50"
               >
-                abbrechen
+                Abbrechen
               </button>
               <button
                 type="button"
                 onClick={handleDelete}
                 disabled={isPending}
-                className="px-3 py-1.5 rounded-[4px] bg-rose-600 hover:bg-rose-700 text-white text-xs font-mono font-medium active:scale-[0.98] transition-transform duration-150 inline-flex items-center gap-1.5 disabled:opacity-50"
+                className="px-3 py-1.5 rounded-lg bg-rose-600 hover:bg-rose-700 text-white text-sm font-sans font-medium  transition-colors duration-150 inline-flex items-center gap-1.5 disabled:opacity-50"
               >
                 {isPending ? (
                   <>
-                    <span className="w-3.5 h-3.5 border-2 border-white border-t-transparent rounded-[2px] animate-spin" />
-                    <span>wird gelöscht...</span>
+                    <span className="w-3.5 h-3.5 border-2 border-white border-t-transparent rounded animate-spin" />
+                    <span>Wird gelöscht...</span>
                   </>
                 ) : (
                   <>
                     <TrashIcon />
-                    <span>endgültig löschen</span>
+                    <span>Endgültig löschen</span>
                   </>
                 )}
               </button>

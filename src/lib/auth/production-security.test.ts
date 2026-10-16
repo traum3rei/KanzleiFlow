@@ -1,7 +1,5 @@
 import { describe, it, expect, beforeEach, afterEach } from "vitest";
 import { NextRequest } from "next/server";
-import { config } from "dotenv";
-config({ path: ".env.local" });
 
 import {
   getTenantContext,

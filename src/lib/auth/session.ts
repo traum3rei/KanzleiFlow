@@ -17,11 +17,12 @@ export const ACTIVE_ORG_COOKIE_NAME = "kanzleiflow_active_org_id";
 export const SESSION_DURATION_MS = 8 * 60 * 60 * 1000;
 
 function getSessionSecret(): string {
-  return (
-    process.env.SESSION_SECRET ||
-    process.env.SUPABASE_JWT_SECRET ||
-    "kanzleiflow-secure-notary-session-secret-key-2026-strict"
-  );
+  const configured = process.env.SESSION_SECRET || process.env.SUPABASE_JWT_SECRET;
+  if (configured) return configured;
+  if (process.env.APP_ENV === "production" || process.env.VERCEL_ENV === "production" || (process.env.NODE_ENV === "production" && process.env.APP_ENV !== "development")) {
+    throw new Error("SESSION_SECRET muss für die Produktionsumgebung konfiguriert sein.");
+  }
+  return "kanzleiflow-secure-notary-session-secret-key-2026-strict";
 }
 
 /**
@@ -66,7 +67,7 @@ export function verifySessionToken(token: string): SessionPayload | null {
     .update(payloadBase64)
     .digest("base64url");
 
-  if (!crypto.timingSafeEqual(Buffer.from(providedSignature), Buffer.from(expectedSignature))) {
+  if (Buffer.byteLength(providedSignature) !== Buffer.byteLength(expectedSignature) || !crypto.timingSafeEqual(Buffer.from(providedSignature), Buffer.from(expectedSignature))) {
     return null;
   }
 
@@ -74,8 +75,12 @@ export function verifySessionToken(token: string): SessionPayload | null {
     const payloadJson = Buffer.from(payloadBase64, "base64url").toString("utf-8");
     const payload = JSON.parse(payloadJson) as SessionPayload;
 
-    // Check expiration
-    if (payload.expiresAt < Date.now()) {
+    // Validate identity and timestamps before using the signed payload.
+    if (!payload || typeof payload.userId !== "string" || !payload.userId ||
+        typeof payload.email !== "string" || !payload.email || typeof payload.fullName !== "string" ||
+        !Number.isFinite(payload.issuedAt) || !Number.isFinite(payload.expiresAt) ||
+        payload.issuedAt > Date.now() || payload.expiresAt <= payload.issuedAt ||
+        payload.expiresAt <= Date.now()) {
       return null;
     }
 
@@ -162,4 +167,25 @@ export async function getAuthenticatedSession(): Promise<SessionPayload | null> 
 export async function getActiveOrgCookie(): Promise<string | null> {
   const cookieStore = await cookies();
   return cookieStore.get(ACTIVE_ORG_COOKIE_NAME)?.value || null;
+}
+
+/**
+ * Extracts a Bearer token from an incoming Request or Headers.
+ */
+export function extractBearerToken(reqOrHeaders: Request | Headers): string | null {
+  const headers = "headers" in reqOrHeaders ? reqOrHeaders.headers : reqOrHeaders;
+  const authHeader = headers.get("authorization") || headers.get("Authorization");
+  if (!authHeader) return null;
+  const parts = authHeader.split(" ");
+  if (parts.length === 2 && parts[0].toLowerCase() === "bearer") {
+    return parts[1].trim();
+  }
+  return null;
+}
+
+/**
+ * Validates a Bearer token and returns its verified SessionPayload.
+ */
+export function getSessionFromBearerToken(token: string): SessionPayload | null {
+  return verifySessionToken(token);
 }

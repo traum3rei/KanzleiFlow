@@ -1,8 +1,3 @@
-// This is your Prisma schema file,
-// learn more about it in the docs: https://pris.ly/d/prisma-schema
-
-// Get a free hosted Postgres database in seconds: `npx create-db`
-
 generator client {
   provider = "prisma-client"
   output   = "../src/generated/prisma"
@@ -114,6 +109,7 @@ model Organization {
   jobs                     BackgroundJob[]
   configurations           DocumentConfiguration[]
   generatedDocumentVersions GeneratedDocumentVersion[]
+  caseExports              CaseExport[]
 
   @@map("organizations")
 }
@@ -172,10 +168,12 @@ model Case {
   drafts                    GeneratedDraft[]
   configurations            DocumentConfiguration[]
   generatedDocumentVersions  GeneratedDocumentVersion[]
+  caseExports               CaseExport[]
 
   @@unique([organizationId, caseNumber])
   @@index([organizationId, status])
-  @@index([organizationId, createdAt(sort: Desc)])
+  @@index([organizationId, createdAt])
+  @@index([organizationId, createdAt(sort: Desc)], map: "cases_organization_id_created_at_desc_idx")
   @@index([organizationId, status, createdAt(sort: Desc)])
   @@index([organizationId, id])
   @@map("cases")
@@ -459,6 +457,32 @@ model LegacyMember {
   paidUntil DateTime? @map("paid_until")
 
   @@map("members")
+}
+
+model CaseExport {
+  id                  String   @id @default(cuid())
+  organizationId      String   @map("organization_id")
+  caseId              String   @map("case_id")
+  jobId               String?  @map("job_id")
+  exportType          String   @map("export_type") // UVZ_XML | XNOTAR_GRUNDBUCH_XML | ENOVA_XML
+  formatVersion       String   @default("1.0.0") @map("format_version")
+  fileName            String   @map("file_name")
+  fileSize            Int      @default(0) @map("file_size")
+  fileHash            String?  @map("file_hash")
+  storagePath         String   @map("storage_path")
+  sourceSnapshot      Json     @map("source_snapshot")
+  validationReport    Json?    @map("validation_report")
+  isAuthoritative     Boolean  @default(false) @map("is_authoritative")
+  compatibilityNotice String?  @map("compatibility_notice")
+  createdById         String?  @map("created_by_id")
+  createdAt           DateTime @default(now()) @map("created_at")
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  case         Case         @relation(fields: [caseId], references: [id], onDelete: Cascade)
+
+  @@index([organizationId, caseId, createdAt(sort: Desc)])
+  @@index([organizationId, exportType])
+  @@map("case_exports")
 }
 
 

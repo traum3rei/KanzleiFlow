@@ -1,8 +1,9 @@
 "use client";
 
-import { useActionState, useState, useEffect } from "react";
+import { useActionState, useState, useEffect, useRef } from "react";
 import { useRouter } from "next/navigation";
-import { createCaseAction, CreateCaseActionState } from "@/app/actions/cases";
+import { createCaseAction, updateCaseAction, CreateCaseActionState } from "@/app/actions/cases";
+import type { CaseRecord } from "@/lib/services/case-service";
 import {
   MatterType,
   matterTypeLabels,
@@ -20,6 +21,8 @@ const initialState: CreateCaseActionState = {
 
 interface CaseFormProps {
   initialPreset?: string;
+  initialCase?: CaseRecord;
+  assignees?: string[];
 }
 
 interface FormPresetData {
@@ -34,8 +37,7 @@ interface FormPresetData {
 }
 
 function getPresetData(presetName: string): FormPresetData {
-  const randomNum = Math.floor(100 + Math.random() * 900);
-  const suggestedAZ = `2026-UR-0${randomNum}`;
+  const suggestedAZ = "";
 
   if (presetName === "real_estate") {
     return {
@@ -185,16 +187,56 @@ function getPresetData(presetName: string): FormPresetData {
   };
 }
 
-export function CaseForm({ initialPreset }: CaseFormProps) {
+export function CaseForm({ initialPreset, initialCase, assignees = [] }: CaseFormProps) {
   const router = useRouter();
-  const [state, formAction, isPending] = useActionState(createCaseAction, initialState);
+  const expectedUpdatedAt = useRef(initialCase?.updatedAt);
+  const dirtyRef = useRef(false);
+  const submittedRef = useRef(false);
+  const [state, formAction, isPending] = useActionState(async (previous: CreateCaseActionState, values: FormData) => {
+    try {
+      if (initialCase) values.set("expectedUpdatedAt", expectedUpdatedAt.current || "");
+      const localDate = values.get("targetDate")?.toString();
+      if (localDate) values.set("targetDate", new Date(localDate).toISOString());
+      const result = await (initialCase ? updateCaseAction(initialCase.id, previous, values) : createCaseAction(previous, values));
+      if (result.success && result.caseId) {
+        dirtyRef.current = false;
+        expectedUpdatedAt.current = result.updatedAt;
+        if (initialCase) router.replace(`/cases/${result.caseId}`);
+        else router.push(`/cases/${result.caseId}`);
+      }
+      return result;
+    } catch {
+      return { success: false, message: "Speichern fehlgeschlagen. Ihre Eingaben bleiben erhalten. Bitte erneut versuchen." };
+    }
+  }, initialState);
 
-  const initialValues = getPresetData(initialPreset || "");
+  const initialValues = initialCase ? {
+    ...initialCase, description: initialCase.description || "", propertyDetails: initialCase.propertyDetails || {},
+    financials: initialCase.financials || { currency: "EUR" }, specialDetails: initialCase.specialDetails || {},
+  } : getPresetData(initialPreset || "");
+  useEffect(() => {
+    if (state.message) submittedRef.current = false;
+    if (state.success) dirtyRef.current = false;
+  }, [state]);
+  useEffect(() => {
+    const warn = (event: BeforeUnloadEvent) => { if (dirtyRef.current) { event.preventDefault(); event.returnValue = ""; } };
+    const navigate = (event: MouseEvent) => {
+      if (dirtyRef.current && event.target instanceof Element && event.target.closest("a[href]") && !window.confirm("Ungespeicherte Änderungen verwerfen?")) { event.preventDefault(); event.stopPropagation(); }
+    };
+    window.addEventListener("beforeunload", warn);
+    document.addEventListener("click", navigate, true);
+    return () => { window.removeEventListener("beforeunload", warn); document.removeEventListener("click", navigate, true); };
+  }, []);
   const [matterType, setMatterType] = useState<MatterType>(initialValues.matterType);
   const [title, setTitle] = useState(initialValues.title);
   const [caseNumber, setCaseNumber] = useState(initialValues.caseNumber);
   const [description, setDescription] = useState(initialValues.description);
   const [parties, setParties] = useState<Party[]>(initialValues.parties);
+
+  const [notaryName, setNotaryName] = useState(initialCase?.notaryName || "");
+  const [assignedClerk, setAssignedClerk] = useState(initialCase?.assignedClerk || "");
+  const [status, setStatus] = useState(initialCase?.status || "DRAFT");
+  const [targetDate, setTargetDate] = useState(initialCase?.targetDate ? new Date(new Date(initialCase.targetDate).getTime() - new Date(initialCase.targetDate).getTimezoneOffset() * 60000).toISOString().slice(0, 16) : "");
 
   // Property Details
   const [propertyDetails, setPropertyDetails] = useState<PropertyDetailsInput>(
@@ -213,6 +255,8 @@ export function CaseForm({ initialPreset }: CaseFormProps) {
 
   // Quick preset applicator
   const applyPreset = (presetKey: string) => {
+    if ((title || description || parties.some((party) => party.name)) && !window.confirm("Beispieldaten übernehmen? Ihre bisherigen Eingaben werden ersetzt.")) return;
+    dirtyRef.current = true;
     const data = getPresetData(presetKey);
     setMatterType(data.matterType);
     setTitle(data.title);
@@ -224,14 +268,8 @@ export function CaseForm({ initialPreset }: CaseFormProps) {
     setSpecialDetails(data.specialDetails);
   };
 
-  // Redirect on success
-  useEffect(() => {
-    if (state.success && state.caseId) {
-      router.push(`/cases/${state.caseId}`);
-    }
-  }, [state, router]);
-
   const addParty = () => {
+    dirtyRef.current = true;
     setParties([
       ...parties,
       { role: "Beteiligte/r", name: "", address: "", birthDate: "", taxId: "", email: "", phone: "" },
@@ -239,6 +277,7 @@ export function CaseForm({ initialPreset }: CaseFormProps) {
   };
 
   const removeParty = (index: number) => {
+    dirtyRef.current = true;
     setParties(parties.filter((_, i) => i !== index));
   };
 
@@ -249,46 +288,53 @@ export function CaseForm({ initialPreset }: CaseFormProps) {
   };
 
   return (
-    <form action={formAction} className="space-y-6">
+    <form action={formAction} onReset={(event) => event.preventDefault()} onChange={() => { dirtyRef.current = true; }} onSubmit={(event) => {
+      if (submittedRef.current) { event.preventDefault(); return; }
+      submittedRef.current = true;
+    }} className="space-y-6">
+      <fieldset disabled={isPending} className="space-y-6 min-w-0">
+      <legend className="sr-only">Aktendaten</legend>
+      <input type="hidden" name="financialCurrency" value={financials.currency} />
       {/* Preset Schnellwahl Bar */}
-      <div className="bg-white dark:bg-slate-950 p-4 rounded-xl border border-slate-200 dark:border-slate-800 shadow-xs flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+      {!initialCase && <div className="bg-white dark:bg-zinc-950 p-4 rounded-xl border border-zinc-200 dark:border-zinc-800 shadow-xs flex flex-col sm:flex-row sm:items-center justify-between gap-3">
         <div>
-          <span className="text-xs font-bold text-slate-800 dark:text-slate-200 block">
+          <span className="text-sm font-bold text-zinc-800 dark:text-zinc-200 block">
             Beispiel-Vorlage vorausfüllen:
           </span>
-          <span className="text-[11px] text-slate-400">
-            Füllt automatisch alle Beteiligten, Grundbuch- und Finanzdaten aus
+          <span className="text-xs text-zinc-400">
+            Übernimmt fiktive Beispieldaten. Bitte vor dem Speichern prüfen.
           </span>
         </div>
           <button
             type="button"
             onClick={() => applyPreset("real_estate")}
-            className="px-2.5 py-1 rounded-[4px] text-xs font-mono font-medium border border-zinc-300 dark:border-zinc-700 bg-white dark:bg-zinc-900 hover:bg-zinc-100 dark:hover:bg-zinc-800 active:scale-[0.98] transition-transform duration-150"
+            className="px-2.5 py-1 rounded-lg text-sm font-sans font-medium border border-zinc-300 dark:border-zinc-700 bg-white dark:bg-zinc-900 hover:bg-zinc-100 dark:hover:bg-zinc-800  transition-colors duration-150"
           >
-            [immo] Grundstückskauf (Bogenhausen)
+            Grundstückskauf (Bogenhausen)
           </button>
           <button
             type="button"
             onClick={() => applyPreset("inheritance")}
-            className="px-2.5 py-1 rounded-[4px] text-xs font-mono font-medium border border-zinc-300 dark:border-zinc-700 bg-white dark:bg-zinc-900 hover:bg-zinc-100 dark:hover:bg-zinc-800 active:scale-[0.98] transition-transform duration-150"
+            className="px-2.5 py-1 rounded-lg text-sm font-sans font-medium border border-zinc-300 dark:border-zinc-700 bg-white dark:bg-zinc-900 hover:bg-zinc-100 dark:hover:bg-zinc-800  transition-colors duration-150"
           >
-            [erbe] Erbschein (Becker)
+            Erbschein (Becker)
           </button>
           <button
             type="button"
             onClick={() => applyPreset("corporate")}
-            className="px-2.5 py-1 rounded-[4px] text-xs font-mono font-medium border border-zinc-300 dark:border-zinc-700 bg-white dark:bg-zinc-900 hover:bg-zinc-100 dark:hover:bg-zinc-800 active:scale-[0.98] transition-transform duration-150"
+            className="px-2.5 py-1 rounded-lg text-sm font-sans font-medium border border-zinc-300 dark:border-zinc-700 bg-white dark:bg-zinc-900 hover:bg-zinc-100 dark:hover:bg-zinc-800  transition-colors duration-150"
           >
-            [gmbh] GmbH-Gründung (NovaTech)
+            GmbH-Gründung (NovaTech)
           </button>
       </div>
 
+      }
       {/* Error Banner */}
       {!state.success && state.message && (
-        <div className="bg-rose-50 dark:bg-rose-950/40 border border-rose-200 dark:border-rose-800 rounded-xl p-4 text-sm text-rose-800 dark:text-rose-200">
+        <div role="alert" tabIndex={-1} className="bg-rose-50 dark:bg-rose-950/40 border border-rose-200 dark:border-rose-800 rounded-xl p-4 text-sm text-rose-800 dark:text-rose-200">
           <p className="font-bold">{state.message}</p>
           {state.errors && (
-            <ul className="mt-2 list-disc list-inside text-xs space-y-1">
+            <ul className="mt-2 list-disc list-inside text-sm space-y-1">
               {Object.entries(state.errors).map(([field, err]) => (
                 <li key={field}>
                   <span className="font-semibold capitalize">{field}:</span> {err}
@@ -300,8 +346,8 @@ export function CaseForm({ initialPreset }: CaseFormProps) {
       )}
 
       {/* Card 1: Stammdaten */}
-      <div className="bg-white dark:bg-slate-950 p-6 rounded-xl border border-slate-200 dark:border-slate-800 shadow-xs space-y-5">
-        <h2 className="text-base font-bold text-slate-900 dark:text-white border-b border-slate-200 dark:border-slate-800 pb-3">
+      <div className="bg-white dark:bg-zinc-950 p-6 rounded-xl border border-zinc-200 dark:border-zinc-800 shadow-xs space-y-5">
+        <h2 className="text-base font-bold text-zinc-900 dark:text-white border-b border-zinc-200 dark:border-zinc-800 pb-3">
           1. Stammdaten des Urkundsgeschäfts
         </h2>
 
@@ -309,9 +355,9 @@ export function CaseForm({ initialPreset }: CaseFormProps) {
           <div>
             <label
               htmlFor="caseNumber"
-              className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1.5"
+              className="block text-sm font-bold text-zinc-700 dark:text-zinc-300 mb-1.5"
             >
-              Aktenzeichen / Urkundenrolle (UR-Nr.) *
+              Aktenzeichen *
             </label>
             <input
               type="text"
@@ -321,17 +367,17 @@ export function CaseForm({ initialPreset }: CaseFormProps) {
               value={caseNumber}
               onChange={(e) => setCaseNumber(e.target.value)}
               placeholder="z. B. 2026-UR-0145"
-              className="w-full h-10 font-mono px-3.5 rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-900 text-sm focus:ring-2 focus:ring-indigo-500 transition"
+              className="w-full h-10 font-sans px-3.5 rounded-lg border border-zinc-300 dark:border-zinc-700 bg-white dark:bg-zinc-900 text-sm focus:ring-2 focus:ring-blue-500 transition"
             />
             {state.errors?.caseNumber && (
-              <p className="text-xs text-rose-600 font-medium mt-1">{state.errors.caseNumber}</p>
+              <p className="text-sm text-rose-600 font-medium mt-1">{state.errors.caseNumber}</p>
             )}
           </div>
 
           <div>
             <label
               htmlFor="matterType"
-              className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1.5"
+              className="block text-sm font-bold text-zinc-700 dark:text-zinc-300 mb-1.5"
             >
               Rechtsgebiet / Urkundenart *
             </label>
@@ -340,7 +386,7 @@ export function CaseForm({ initialPreset }: CaseFormProps) {
               name="matterType"
               value={matterType}
               onChange={(e) => setMatterType(e.target.value as MatterType)}
-              className="w-full h-10 px-3.5 rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-900 text-sm focus:ring-2 focus:ring-indigo-500 transition"
+              className="w-full h-10 px-3.5 rounded-lg border border-zinc-300 dark:border-zinc-700 bg-white dark:bg-zinc-900 text-sm focus:ring-2 focus:ring-blue-500 transition"
             >
               {(Object.keys(matterTypeLabels) as MatterType[]).map((key) => (
                 <option key={key} value={key}>
@@ -354,7 +400,7 @@ export function CaseForm({ initialPreset }: CaseFormProps) {
         <div>
           <label
             htmlFor="title"
-            className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1.5"
+            className="block text-sm font-bold text-zinc-700 dark:text-zinc-300 mb-1.5"
           >
             Vorgangsbezeichnung / Betreff *
           </label>
@@ -366,17 +412,17 @@ export function CaseForm({ initialPreset }: CaseFormProps) {
             value={title}
             onChange={(e) => setTitle(e.target.value)}
             placeholder="z. B. Kaufvertrag Grundstück Flur 14, Gemarkung Schwabing"
-            className="w-full h-10 px-3.5 rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-900 text-sm focus:ring-2 focus:ring-indigo-500 transition"
+            className="w-full h-10 px-3.5 rounded-lg border border-zinc-300 dark:border-zinc-700 bg-white dark:bg-zinc-900 text-sm focus:ring-2 focus:ring-blue-500 transition"
           />
           {state.errors?.title && (
-            <p className="text-xs text-rose-600 font-medium mt-1">{state.errors.title}</p>
+            <p className="text-sm text-rose-600 font-medium mt-1">{state.errors.title}</p>
           )}
         </div>
 
         <div>
           <label
             htmlFor="description"
-            className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1.5"
+            className="block text-sm font-bold text-zinc-700 dark:text-zinc-300 mb-1.5"
           >
             Kurzbeschreibung & Notizen zum Sachverhalt
           </label>
@@ -387,22 +433,22 @@ export function CaseForm({ initialPreset }: CaseFormProps) {
             value={description}
             onChange={(e) => setDescription(e.target.value)}
             placeholder="Wesentliche Vertragsdaten, Vereinbarungen, Vollzugshinweise..."
-            className="w-full p-3.5 rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-900 text-sm focus:ring-2 focus:ring-indigo-500 transition"
+            className="w-full p-3.5 rounded-lg border border-zinc-300 dark:border-zinc-700 bg-white dark:bg-zinc-900 text-sm focus:ring-2 focus:ring-blue-500 transition"
           />
         </div>
       </div>
 
       {/* Card 2: Zuständigkeiten & Termine */}
-      <div className="bg-white dark:bg-slate-950 p-6 rounded-xl border border-slate-200 dark:border-slate-800 shadow-xs space-y-5">
-        <h2 className="text-base font-bold text-slate-900 dark:text-white border-b border-slate-200 dark:border-slate-800 pb-3">
+      <div className="bg-white dark:bg-zinc-950 p-6 rounded-xl border border-zinc-200 dark:border-zinc-800 shadow-xs space-y-5">
+        <h2 className="text-base font-bold text-zinc-900 dark:text-white border-b border-zinc-200 dark:border-zinc-800 pb-3">
           2. Zuständigkeiten & Termine
         </h2>
 
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-5">
-          <div>
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-5 md:gap-y-1.5">
+          <div className="grid gap-y-1.5 md:row-span-2 md:grid-rows-subgrid">
             <label
               htmlFor="notaryName"
-              className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1.5"
+              className="block text-sm font-bold text-zinc-700 dark:text-zinc-300 mb-1.5"
             >
               Zuständige/r Notar/in
             </label>
@@ -410,42 +456,42 @@ export function CaseForm({ initialPreset }: CaseFormProps) {
               type="text"
               id="notaryName"
               name="notaryName"
-              defaultValue="Dr. Johannes Weiss"
-              className="w-full h-10 px-3.5 rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-900 text-sm focus:ring-2 focus:ring-indigo-500 transition"
+              value={notaryName} onChange={(event) => setNotaryName(event.target.value)}
+              placeholder="Name der zuständigen Notarin oder des Notars"
+              className="block w-full !h-10 box-border min-h-0 !py-0 px-3.5 rounded-lg border border-zinc-300 dark:border-zinc-700 bg-white dark:bg-zinc-900 text-sm focus:ring-2 focus:ring-blue-500 transition"
             />
           </div>
 
-          <div>
+          <div className="grid gap-y-1.5 md:row-span-2 md:grid-rows-subgrid">
             <label
               htmlFor="assignedClerk"
-              className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1.5"
+              className="block text-sm font-bold text-zinc-700 dark:text-zinc-300 mb-1.5"
             >
               Sachbearbeiter/in (Notarfachangestellte/r)
             </label>
             <select
               id="assignedClerk"
               name="assignedClerk"
-              defaultValue="Stefanie Bauer"
-              className="w-full h-10 px-3.5 rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-900 text-sm focus:ring-2 focus:ring-indigo-500 transition"
+              value={assignedClerk} onChange={(event) => setAssignedClerk(event.target.value)}
+              className="block w-full !h-10 box-border min-h-0 !py-0 px-3.5 rounded-lg border border-zinc-300 dark:border-zinc-700 bg-white dark:bg-zinc-900 text-sm focus:ring-2 focus:ring-blue-500 transition"
             >
-              <option value="Stefanie Bauer">Stefanie Bauer (Bürovorsteherin)</option>
-              <option value="Michael Köhler">Michael Köhler (Notarfachwirt)</option>
-              <option value="Katharina Lind">Katharina Lind (Assessorin)</option>
+              <option value="">Noch nicht zugewiesen</option>
+              {assignees.map((name) => <option key={name} value={name}>{name}</option>)}
             </select>
           </div>
 
-          <div>
+          <div className="grid gap-y-1.5 md:row-span-2 md:grid-rows-subgrid">
             <label
               htmlFor="status"
-              className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1.5"
+              className="block text-sm font-bold text-zinc-700 dark:text-zinc-300 mb-1.5"
             >
               Bearbeitungsstatus *
             </label>
             <select
               id="status"
               name="status"
-              defaultValue="DRAFT"
-              className="w-full h-10 px-3.5 rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-900 text-sm focus:ring-2 focus:ring-indigo-500 transition"
+              value={status} onChange={(event) => setStatus(event.target.value as CaseStatus)}
+              className="block w-full !h-10 box-border min-h-0 !py-0 px-3.5 rounded-lg border border-zinc-300 dark:border-zinc-700 bg-white dark:bg-zinc-900 text-sm focus:ring-2 focus:ring-blue-500 transition"
             >
               {(Object.keys(caseStatusLabels) as CaseStatus[]).map((key) => (
                 <option key={key} value={key}>
@@ -456,10 +502,10 @@ export function CaseForm({ initialPreset }: CaseFormProps) {
           </div>
         </div>
 
-        <div>
+        <div className="grid gap-y-1.5 md:row-span-2 md:grid-rows-subgrid">
           <label
             htmlFor="targetDate"
-            className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1.5"
+            className="block text-sm font-bold text-zinc-700 dark:text-zinc-300 mb-1.5"
           >
             Geplanter Beurkundungstermin (optional)
           </label>
@@ -467,26 +513,27 @@ export function CaseForm({ initialPreset }: CaseFormProps) {
             type="datetime-local"
             id="targetDate"
             name="targetDate"
-            className="w-full sm:w-72 h-10 px-3.5 rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-900 text-sm focus:ring-2 focus:ring-indigo-500 transition"
+            value={targetDate} onChange={(event) => setTargetDate(event.target.value)}
+            className="w-full sm:w-72 h-10 px-3.5 rounded-lg border border-zinc-300 dark:border-zinc-700 bg-white dark:bg-zinc-900 text-sm focus:ring-2 focus:ring-blue-500 transition"
           />
         </div>
       </div>
 
       {/* Card 3: Beteiligte & Parteien */}
-      <div className="bg-white dark:bg-slate-950 p-6 rounded-xl border border-slate-200 dark:border-slate-800 shadow-xs space-y-4">
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-slate-200 dark:border-slate-800 pb-3">
+      <div className="bg-white dark:bg-zinc-950 p-6 rounded-xl border border-zinc-200 dark:border-zinc-800 shadow-xs space-y-4">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-zinc-200 dark:border-zinc-800 pb-3">
           <div>
-            <h2 className="text-base font-bold text-slate-900 dark:text-white">
+            <h2 className="text-base font-bold text-zinc-900 dark:text-white">
               3. Beteiligte & Parteien ({parties.length})
             </h2>
-            <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
+            <p className="text-sm text-zinc-500 dark:text-zinc-400 mt-0.5">
               Vollständige Angaben für Legitimation (§ 10 BeurkG), GwG und Finanzamtsmeldung (§ 139b AO)
             </p>
           </div>
           <button
             type="button"
             onClick={addParty}
-            className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold rounded-lg border border-slate-300 dark:border-slate-700 hover:bg-slate-100 dark:hover:bg-slate-800 transition self-start sm:self-auto shadow-2xs"
+            className="inline-flex items-center gap-1.5 px-3 py-1.5 text-sm font-semibold rounded-lg border border-zinc-300 dark:border-zinc-700 hover:bg-zinc-100 dark:hover:bg-zinc-800 transition self-start sm:self-auto shadow-2xs"
           >
             <span>+</span>
             <span>Beteiligten hinzufügen</span>
@@ -497,20 +544,21 @@ export function CaseForm({ initialPreset }: CaseFormProps) {
           {parties.map((party, idx) => (
             <div
               key={idx}
-              className="p-4 rounded-xl bg-slate-50/70 dark:bg-slate-900/50 border border-slate-200/80 dark:border-slate-800 space-y-3"
+              className="p-4 rounded-xl bg-zinc-50/70 dark:bg-zinc-900/50 border border-zinc-200/80 dark:border-zinc-800 space-y-3"
             >
               <div className="flex items-center justify-between">
-                <span className="text-xs font-bold text-slate-700 dark:text-slate-300 flex items-center gap-2">
-                  <span className="w-5 h-5 rounded-full bg-indigo-100 dark:bg-indigo-950/60 text-indigo-700 dark:text-indigo-300 flex items-center justify-center text-[10px] font-extrabold">
+                <input type="hidden" name="partyNationality" value={party.nationality || ""} />
+                <span className="text-sm font-bold text-zinc-700 dark:text-zinc-300 flex items-center gap-2">
+                  <span className="w-5 h-5 rounded-full bg-blue-100 dark:bg-blue-950/60 text-blue-700 dark:text-blue-300 flex items-center justify-center text-xs font-extrabold">
                     {idx + 1}
                   </span>
                   <span>Beteiligte/r: {party.role || "Rolle offen"}</span>
                 </span>
-                {parties.length > 1 && (
+                {parties.length > 0 && (
                   <button
                     type="button"
                     onClick={() => removeParty(idx)}
-                    className="text-xs font-mono text-rose-600 dark:text-rose-400 hover:underline px-1 py-0.5"
+                    className="text-sm font-sans text-rose-600 dark:text-rose-400 hover:underline px-1 py-0.5"
                   >
                     [entfernen]
                   </button>
@@ -520,113 +568,113 @@ export function CaseForm({ initialPreset }: CaseFormProps) {
               {/* Row 1: Rolle, Name, Anschrift */}
               <div className="grid grid-cols-1 md:grid-cols-12 gap-3">
                 <div className="md:col-span-3">
-                  <label className="block text-[11px] font-medium text-slate-500 mb-1">
+                  <label className="block text-xs font-medium text-zinc-500 mb-1">
                     Rolle (z. B. Verkäuferin, Käufer, Erbe)
                   </label>
-                  <input
+                  <input aria-label="Rolle (z. B. Verkäuferin, Käufer, Erbe)"
                     type="text"
                     name="partyRole"
                     value={party.role}
                     onChange={(e) => updateParty(idx, "role", e.target.value)}
                     placeholder="Rolle"
-                    className="w-full h-9 px-3 rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-950 text-xs"
+                    className="w-full h-9 px-3 rounded-lg border border-zinc-300 dark:border-zinc-700 bg-white dark:bg-zinc-950 text-sm"
                   />
                 </div>
                 <div className="md:col-span-4">
-                  <label className="block text-[11px] font-medium text-slate-500 mb-1">
+                  <label className="block text-xs font-medium text-zinc-500 mb-1">
                     Vollständiger Name / Firma *
                   </label>
-                  <input
+                  <input aria-label="Vollständiger Name / Firma *"
                     type="text"
                     name="partyName"
                     value={party.name}
                     onChange={(e) => updateParty(idx, "name", e.target.value)}
                     placeholder="Vorname Nachname / Firma"
-                    className="w-full h-9 px-3 rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-950 text-xs font-semibold"
+                    className="w-full h-9 px-3 rounded-lg border border-zinc-300 dark:border-zinc-700 bg-white dark:bg-zinc-950 text-sm font-semibold"
                   />
                 </div>
                 <div className="md:col-span-5">
-                  <label className="block text-[11px] font-medium text-slate-500 mb-1">
+                  <label className="block text-xs font-medium text-zinc-500 mb-1">
                     Anschrift (Straße, Hausnr., PLZ Ort)
                   </label>
-                  <input
+                  <input aria-label="Anschrift (Straße, Hausnr., PLZ Ort)"
                     type="text"
                     name="partyAddress"
                     value={party.address || ""}
                     onChange={(e) => updateParty(idx, "address", e.target.value)}
                     placeholder="Musterstr. 1, 80333 München"
-                    className="w-full h-9 px-3 rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-950 text-xs"
+                    className="w-full h-9 px-3 rounded-lg border border-zinc-300 dark:border-zinc-700 bg-white dark:bg-zinc-950 text-sm"
                   />
                 </div>
               </div>
 
               {/* Row 2: Geburtsdatum, Steuer-ID, E-Mail, Telefon */}
-              <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-3 pt-1 border-t border-slate-200/50 dark:border-slate-800/50">
+              <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-3 pt-1 border-t border-zinc-200/50 dark:border-zinc-800/50">
                 <div>
-                  <label className="block text-[11px] font-medium text-slate-500 mb-1">
+                  <label className="block text-xs font-medium text-zinc-500 mb-1">
                     Geburtsdatum
                   </label>
-                  <input
+                  <input aria-label="Geburtsdatum"
                     type="date"
                     name="partyBirthDate"
                     value={party.birthDate || ""}
                     onChange={(e) => updateParty(idx, "birthDate", e.target.value)}
-                    className="w-full h-8 px-2.5 rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-950 text-xs"
+                    className="w-full h-8 px-2.5 rounded-lg border border-zinc-300 dark:border-zinc-700 bg-white dark:bg-zinc-950 text-sm"
                   />
                 </div>
                 <div>
-                  <label className="block text-[11px] font-medium text-slate-500 mb-1">
+                  <label className="block text-xs font-medium text-zinc-500 mb-1">
                     Steuer-ID (§ 139b AO)
                   </label>
-                  <input
+                  <input aria-label="Steuer-ID (§ 139b AO)"
                     type="text"
                     name="partyTaxId"
                     value={party.taxId || ""}
                     onChange={(e) => updateParty(idx, "taxId", e.target.value)}
                     placeholder="z. B. 12 345 678 901"
-                    className="w-full h-8 px-2.5 rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-950 text-xs font-mono"
+                    className="w-full h-8 px-2.5 rounded-lg border border-zinc-300 dark:border-zinc-700 bg-white dark:bg-zinc-950 text-sm font-sans"
                   />
                 </div>
                 <div>
-                  <label className="block text-[11px] font-medium text-slate-500 mb-1">
+                  <label className="block text-xs font-medium text-zinc-500 mb-1">
                     E-Mail (Entwurfsversand)
                   </label>
-                  <input
+                  <input aria-label="E-Mail (Entwurfsversand)"
                     type="email"
                     name="partyEmail"
                     value={party.email || ""}
                     onChange={(e) => updateParty(idx, "email", e.target.value)}
                     placeholder="name@beispiel.de"
-                    className="w-full h-8 px-2.5 rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-950 text-xs"
+                    className="w-full h-8 px-2.5 rounded-lg border border-zinc-300 dark:border-zinc-700 bg-white dark:bg-zinc-950 text-sm"
                   />
                 </div>
                 <div>
-                  <label className="block text-[11px] font-medium text-slate-500 mb-1">
+                  <label className="block text-xs font-medium text-zinc-500 mb-1">
                     Telefon / Mobil
                   </label>
-                  <input
+                  <input aria-label="Telefon / Mobil"
                     type="text"
                     name="partyPhone"
                     value={party.phone || ""}
                     onChange={(e) => updateParty(idx, "phone", e.target.value)}
                     placeholder="+49 89 ..."
-                    className="w-full h-8 px-2.5 rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-950 text-xs"
+                    className="w-full h-8 px-2.5 rounded-lg border border-zinc-300 dark:border-zinc-700 bg-white dark:bg-zinc-950 text-sm"
                   />
                 </div>
               </div>
 
               {/* Row 3: Familienstand / Güterstand */}
               <div className="pt-1">
-                <label className="block text-[11px] font-medium text-slate-500 mb-1">
+                <label className="block text-xs font-medium text-zinc-500 mb-1">
                   Familien- & Güterstand (optional, z. B. verheiratet in Zugewinngemeinschaft für § 1365 BGB)
                 </label>
-                <input
+                <input aria-label="Familien- & Güterstand (optional, z. B. verheiratet in Zugewinngemeinschaft für § 1365 BGB)"
                   type="text"
                   name="partyMaritalStatus"
                   value={party.maritalStatus || ""}
                   onChange={(e) => updateParty(idx, "maritalStatus", e.target.value)}
                   placeholder="z. B. verheiratet (Gütertrennung) / ledig"
-                  className="w-full h-8 px-2.5 rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-950 text-xs"
+                  className="w-full h-8 px-2.5 rounded-lg border border-zinc-300 dark:border-zinc-700 bg-white dark:bg-zinc-950 text-sm"
                 />
               </div>
             </div>
@@ -635,22 +683,22 @@ export function CaseForm({ initialPreset }: CaseFormProps) {
       </div>
 
       {/* Card 4: Vertragsgegenstand & Grundbuchdaten (Grundstück / Immobilie) */}
-      <div className="bg-white dark:bg-slate-950 p-6 rounded-xl border border-slate-200 dark:border-slate-800 shadow-xs space-y-4">
+      <div className="bg-white dark:bg-zinc-950 p-6 rounded-xl border border-zinc-200 dark:border-zinc-800 shadow-xs space-y-4">
         <div>
-          <h2 className="text-base font-bold text-slate-900 dark:text-white">
+          <h2 className="text-base font-bold text-zinc-900 dark:text-white">
             4. Vertragsgegenstand & Grundbuchdaten
           </h2>
-          <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
+          <p className="text-sm text-zinc-500 dark:text-zinc-400 mt-0.5">
             Grundbuchamtliche Bezeichnungen für Kaufverträge, Überlassungen und Grundschulden
           </p>
         </div>
 
         <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 pt-2">
           <div>
-            <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">
+            <label className="block text-sm font-semibold text-zinc-700 dark:text-zinc-300 mb-1">
               Gemarkung
             </label>
-            <input
+            <input aria-label="Gemarkung"
               type="text"
               name="propertyLandRegistryDistrict"
               value={propertyDetails.landRegistryDistrict || ""}
@@ -658,15 +706,15 @@ export function CaseForm({ initialPreset }: CaseFormProps) {
                 setPropertyDetails({ ...propertyDetails, landRegistryDistrict: e.target.value })
               }
               placeholder="z. B. Schwabing, Bogenhausen"
-              className="w-full h-9 px-3 rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-900 text-xs"
+              className="w-full h-9 px-3 rounded-lg border border-zinc-300 dark:border-zinc-700 bg-white dark:bg-zinc-900 text-sm"
             />
           </div>
 
           <div>
-            <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">
+            <label className="block text-sm font-semibold text-zinc-700 dark:text-zinc-300 mb-1">
               Grundbuchblatt (Abt. I)
             </label>
-            <input
+            <input aria-label="Grundbuchblatt (Abt. I)"
               type="text"
               name="propertySheetNumber"
               value={propertyDetails.sheetNumber || ""}
@@ -674,15 +722,15 @@ export function CaseForm({ initialPreset }: CaseFormProps) {
                 setPropertyDetails({ ...propertyDetails, sheetNumber: e.target.value })
               }
               placeholder="z. B. 4521"
-              className="w-full h-9 px-3 rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-900 text-xs font-mono"
+              className="w-full h-9 px-3 rounded-lg border border-zinc-300 dark:border-zinc-700 bg-white dark:bg-zinc-900 text-sm font-sans"
             />
           </div>
 
           <div>
-            <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">
+            <label className="block text-sm font-semibold text-zinc-700 dark:text-zinc-300 mb-1">
               Flurstück / Flurnummer
             </label>
-            <input
+            <input aria-label="Flurstück / Flurnummer"
               type="text"
               name="propertyParcelNumber"
               value={propertyDetails.parcelNumber || ""}
@@ -690,16 +738,16 @@ export function CaseForm({ initialPreset }: CaseFormProps) {
                 setPropertyDetails({ ...propertyDetails, parcelNumber: e.target.value })
               }
               placeholder="z. B. Flur 14, Flurstück 88/2"
-              className="w-full h-9 px-3 rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-900 text-xs"
+              className="w-full h-9 px-3 rounded-lg border border-zinc-300 dark:border-zinc-700 bg-white dark:bg-zinc-900 text-sm"
             />
           </div>
 
           <div>
-            <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">
+            <label className="block text-sm font-semibold text-zinc-700 dark:text-zinc-300 mb-1">
               Grundstücksfläche (in m²)
             </label>
-            <input
-              type="number"
+            <input aria-label="Grundstücksfläche (in m²)"
+              type="number" step="0.01" min="0"
               name="propertyAreaSqm"
               value={propertyDetails.areaSqm ?? ""}
               onChange={(e) =>
@@ -709,15 +757,15 @@ export function CaseForm({ initialPreset }: CaseFormProps) {
                 })
               }
               placeholder="z. B. 850"
-              className="w-full h-9 px-3 rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-900 text-xs"
+              className="w-full h-9 px-3 rounded-lg border border-zinc-300 dark:border-zinc-700 bg-white dark:bg-zinc-900 text-sm"
             />
           </div>
 
           <div className="sm:col-span-2">
-            <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">
+            <label className="block text-sm font-semibold text-zinc-700 dark:text-zinc-300 mb-1">
               Wirtschaftsart / Nutzungsart
             </label>
-            <input
+            <input aria-label="Wirtschaftsart / Nutzungsart"
               type="text"
               name="propertyEconomicUse"
               value={propertyDetails.economicUse || ""}
@@ -725,30 +773,30 @@ export function CaseForm({ initialPreset }: CaseFormProps) {
                 setPropertyDetails({ ...propertyDetails, economicUse: e.target.value })
               }
               placeholder="z. B. Gebäude- und Freifläche, Wohnbaufläche"
-              className="w-full h-9 px-3 rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-900 text-xs"
+              className="w-full h-9 px-3 rounded-lg border border-zinc-300 dark:border-zinc-700 bg-white dark:bg-zinc-900 text-sm"
             />
           </div>
         </div>
       </div>
 
       {/* Card 5: Kaufpreis & Finanzielle Bedingungen */}
-      <div className="bg-white dark:bg-slate-950 p-6 rounded-xl border border-slate-200 dark:border-slate-800 shadow-xs space-y-4">
+      <div className="bg-white dark:bg-zinc-950 p-6 rounded-xl border border-zinc-200 dark:border-zinc-800 shadow-xs space-y-4">
         <div>
-          <h2 className="text-base font-bold text-slate-900 dark:text-white">
+          <h2 className="text-base font-bold text-zinc-900 dark:text-white">
             5. Gegenleistung & Kaufpreis / Geschäftswert
           </h2>
-          <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
+          <p className="text-sm text-zinc-500 dark:text-zinc-400 mt-0.5">
             Zahlungsmodalitäten und Gebührenberechnungsgrundlage (§ 34 GNotKG)
           </p>
         </div>
 
         <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 pt-2">
           <div>
-            <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">
+            <label className="block text-sm font-semibold text-zinc-700 dark:text-zinc-300 mb-1">
               Kaufpreis / Geschäftswert (in EUR)
             </label>
-            <input
-              type="number"
+            <input aria-label="Kaufpreis / Geschäftswert (in EUR)"
+              type="number" step="0.01" min="0"
               name="financialDealValue"
               value={financials.dealValue ?? ""}
               onChange={(e) =>
@@ -758,15 +806,15 @@ export function CaseForm({ initialPreset }: CaseFormProps) {
                 })
               }
               placeholder="z. B. 1850000"
-              className="w-full h-9 px-3 rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-900 text-xs font-semibold"
+              className="w-full h-9 px-3 rounded-lg border border-zinc-300 dark:border-zinc-700 bg-white dark:bg-zinc-900 text-sm font-semibold"
             />
           </div>
 
           <div className="sm:col-span-2">
-            <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">
+            <label className="block text-sm font-semibold text-zinc-700 dark:text-zinc-300 mb-1">
               Zahlungsfälligkeit
             </label>
-            <input
+            <input aria-label="Zahlungsfälligkeit"
               type="text"
               name="financialPaymentDueDate"
               value={financials.paymentDueDate || ""}
@@ -774,15 +822,15 @@ export function CaseForm({ initialPreset }: CaseFormProps) {
                 setFinancials({ ...financials, paymentDueDate: e.target.value })
               }
               placeholder="z. B. 15. November 2026 / 14 Tage nach Vormerkung"
-              className="w-full h-9 px-3 rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-900 text-xs"
+              className="w-full h-9 px-3 rounded-lg border border-zinc-300 dark:border-zinc-700 bg-white dark:bg-zinc-900 text-sm"
             />
           </div>
 
           <div className="sm:col-span-3">
-            <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">
+            <label className="block text-sm font-semibold text-zinc-700 dark:text-zinc-300 mb-1">
               Eingetragene Lasten / Vorlasten (Abt. II / Abt. III)
             </label>
-            <input
+            <input aria-label="Eingetragene Lasten / Vorlasten (Abt. II / Abt. III)"
               type="text"
               name="financialExistingEncumbrances"
               value={financials.existingEncumbrances || ""}
@@ -790,29 +838,29 @@ export function CaseForm({ initialPreset }: CaseFormProps) {
                 setFinancials({ ...financials, existingEncumbrances: e.target.value })
               }
               placeholder="z. B. Abt. II: Geh- und Fahrtrecht; Abt. III: Grundschuld 500.000 EUR (zu löschen)"
-              className="w-full h-9 px-3 rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-900 text-xs"
+              className="w-full h-9 px-3 rounded-lg border border-zinc-300 dark:border-zinc-700 bg-white dark:bg-zinc-900 text-sm"
             />
           </div>
         </div>
       </div>
 
       {/* Card 6: Gesellschafts- & Erbrechtsangaben (Optional / kontextabhängig) */}
-      <div className="bg-white dark:bg-slate-950 p-6 rounded-xl border border-slate-200 dark:border-slate-800 shadow-xs space-y-4">
+      <div className="bg-white dark:bg-zinc-950 p-6 rounded-xl border border-zinc-200 dark:border-zinc-800 shadow-xs space-y-4">
         <div>
-          <h2 className="text-base font-bold text-slate-900 dark:text-white">
+          <h2 className="text-base font-bold text-zinc-900 dark:text-white">
             6. Register- & Erbrechtsangaben (falls zutreffend)
           </h2>
-          <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
+          <p className="text-sm text-zinc-500 dark:text-zinc-400 mt-0.5">
             Zusatzangaben für Gesellschaftsgründungen, Handelsregisteranmeldungen oder Erbfälle
           </p>
         </div>
 
-        <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-4 pt-2">
+        <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-4 pt-2 items-end">
           <div>
-            <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">
+            <label className="block text-sm font-semibold text-zinc-700 dark:text-zinc-300 mb-1">
               Handelsregister-Nummer
             </label>
-            <input
+            <input aria-label="Handelsregister-Nummer"
               type="text"
               name="specialCommercialRegister"
               value={specialDetails.commercialRegister || ""}
@@ -820,15 +868,15 @@ export function CaseForm({ initialPreset }: CaseFormProps) {
                 setSpecialDetails({ ...specialDetails, commercialRegister: e.target.value })
               }
               placeholder="z. B. HRB 241900"
-              className="w-full h-9 px-3 rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-900 text-xs font-mono"
+              className="w-full h-9 px-3 rounded-lg border border-zinc-300 dark:border-zinc-700 bg-white dark:bg-zinc-900 text-sm font-sans"
             />
           </div>
 
           <div>
-            <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">
+            <label className="block text-sm font-semibold text-zinc-700 dark:text-zinc-300 mb-1">
               Zuständiges Registergericht
             </label>
-            <input
+            <input aria-label="Zuständiges Registergericht"
               type="text"
               name="specialRegisterCourt"
               value={specialDetails.registerCourt || ""}
@@ -836,16 +884,16 @@ export function CaseForm({ initialPreset }: CaseFormProps) {
                 setSpecialDetails({ ...specialDetails, registerCourt: e.target.value })
               }
               placeholder="z. B. Amtsgericht München"
-              className="w-full h-9 px-3 rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-900 text-xs"
+              className="w-full h-9 px-3 rounded-lg border border-zinc-300 dark:border-zinc-700 bg-white dark:bg-zinc-900 text-sm"
             />
           </div>
 
           <div>
-            <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">
+            <label className="block text-sm font-semibold text-zinc-700 dark:text-zinc-300 mb-1">
               Stammkapital (in EUR)
             </label>
-            <input
-              type="number"
+            <input aria-label="Stammkapital (in EUR)"
+              type="number" step="0.01" min="0"
               name="specialShareCapital"
               value={specialDetails.shareCapital ?? ""}
               onChange={(e) =>
@@ -855,22 +903,22 @@ export function CaseForm({ initialPreset }: CaseFormProps) {
                 })
               }
               placeholder="z. B. 25000"
-              className="w-full h-9 px-3 rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-900 text-xs"
+              className="w-full h-9 px-3 rounded-lg border border-zinc-300 dark:border-zinc-700 bg-white dark:bg-zinc-900 text-sm"
             />
           </div>
 
           <div>
-            <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">
+            <label className="block text-sm font-semibold text-zinc-700 dark:text-zinc-300 mb-1">
               Sterbedatum (bei Erbfall)
             </label>
-            <input
+            <input aria-label="Sterbedatum (bei Erbfall)"
               type="date"
               name="specialDeceasedDate"
               value={specialDetails.deceasedDate || ""}
               onChange={(e) =>
                 setSpecialDetails({ ...specialDetails, deceasedDate: e.target.value })
               }
-              className="w-full h-9 px-3 rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-900 text-xs"
+              className="w-full h-9 px-3 rounded-lg border border-zinc-300 dark:border-zinc-700 bg-white dark:bg-zinc-900 text-sm"
             />
           </div>
         </div>
@@ -880,26 +928,27 @@ export function CaseForm({ initialPreset }: CaseFormProps) {
       <div className="flex items-center justify-end gap-3 pt-3">
         <button
           type="button"
-          onClick={() => router.back()}
-          className="px-5 py-2.5 text-sm font-semibold rounded-lg border border-slate-300 dark:border-slate-700 text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 transition"
+          onClick={() => { if (!dirtyRef.current || window.confirm("Ungespeicherte Änderungen verwerfen?")) { dirtyRef.current = false; if (initialCase) router.push(`/cases/${initialCase.id}`); else router.back(); } }}
+          className="px-5 py-2.5 text-sm font-semibold rounded-lg border border-zinc-300 dark:border-zinc-700 text-zinc-700 dark:text-zinc-300 hover:bg-zinc-100 dark:hover:bg-zinc-800 transition"
         >
           Abbrechen
         </button>
         <button
           type="submit"
           disabled={isPending}
-          className="px-6 py-2.5 text-sm font-semibold text-white bg-indigo-600 hover:bg-indigo-700 disabled:opacity-50 rounded-lg shadow-xs transition flex items-center gap-2"
+          className="px-6 py-2.5 text-sm font-semibold text-white bg-blue-600 hover:bg-blue-700 disabled:opacity-50 rounded-lg shadow-xs transition flex items-center gap-2"
         >
           {isPending ? (
             <>
               <span className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
-              <span>Akte wird in Urkundenrolle angelegt...</span>
+              <span>{initialCase ? "Wird gespeichert …" : "Akte wird angelegt…"}</span>
             </>
           ) : (
-            <span>Akte anlegen & Urkundenrolle eröffnen</span>
+            <span>{initialCase ? "Änderungen speichern" : "Akte anlegen"}</span>
           )}
         </button>
       </div>
+      </fieldset>
     </form>
   );
 }

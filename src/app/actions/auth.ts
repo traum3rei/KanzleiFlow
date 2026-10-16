@@ -98,6 +98,14 @@ export async function loginAction(
     }
   }
 
+  // Supabase success has already redirected above. Never turn an unverified
+  // provider response into a locally signed session.
+  if (supabase) return { success: false, message: "Anmeldung fehlgeschlagen. Bitte versuchen Sie es erneut." };
+  const demoAllowed = process.env.ALLOW_DEMO_AUTH !== "false" && process.env.REQUIRE_AUTH !== "true";
+  if (!demoAllowed || email.trim().toLowerCase() !== "j.weiss@notariat-weiss-partner.de" || password !== "notar-geheim-2026") {
+    return { success: false, message: "Anmeldung fehlgeschlagen. Bitte prüfen Sie Ihre Zugangsdaten." };
+  }
+
   // 2. Database verification (PostgreSQL)
   const prisma = getPrismaClient();
   if (prisma) {

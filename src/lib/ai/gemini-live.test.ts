@@ -1,8 +1,6 @@
 import { describe, it, expect } from "vitest";
 import fs from "fs";
 import path from "path";
-import dotenv from "dotenv";
-dotenv.config({ path: ".env.local" });
 import { GeminiProvider } from "./provider";
 import { ExtractedLegalFieldsSchema } from "./schema";
 

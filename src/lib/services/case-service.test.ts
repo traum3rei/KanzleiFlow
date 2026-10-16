@@ -1,9 +1,8 @@
-import { config } from "dotenv";
-config({ path: ".env.local" });
 import { describe, it, expect } from "vitest";
 import {
 
   getCases,
+  updateCase,
   getCaseById,
   createCase,
   deleteCase,
@@ -234,5 +233,83 @@ describe("Case Service", () => {
     await expect(
       deleteCase(DEMO_NOTARIAT_CONTEXT, "non-existent-case-uuid-999")
     ).rejects.toThrow(CaseNotFoundError);
+  });
+
+  it("filters cases by matterType (Rechtsgebiet) and counts accurately", async () => {
+    const { countCases } = await import("./case-service");
+    const realEstateCases = await getCases(DEMO_NOTARIAT_CONTEXT, {
+      matterType: "REAL_ESTATE",
+    });
+    for (const c of realEstateCases) {
+      expect(c.matterType).toBe("REAL_ESTATE");
+    }
+
+    const totalRealEstate = await countCases(DEMO_NOTARIAT_CONTEXT, {
+      matterType: "REAL_ESTATE",
+    });
+    expect(totalRealEstate).toBeGreaterThanOrEqual(realEstateCases.length);
+  });
+
+  it("filters cases by responsibility (Zuständigkeit) and supports pagination offset", async () => {
+    const { countCases, getAvailableAssignees } = await import("./case-service");
+    const assignees = await getAvailableAssignees(DEMO_NOTARIAT_CONTEXT);
+    expect(assignees.length).toBeGreaterThan(0);
+
+    // Test with the first assignee
+    const testAssignee = assignees[0];
+    const filteredCases = await getCases(DEMO_NOTARIAT_CONTEXT, {
+      responsibility: testAssignee,
+    });
+    const countWithAssignee = await countCases(DEMO_NOTARIAT_CONTEXT, {
+      responsibility: testAssignee,
+    });
+    expect(countWithAssignee).toBeGreaterThanOrEqual(filteredCases.length);
+
+    for (const c of filteredCases) {
+      const match =
+        (c.assignedClerk && c.assignedClerk.toLowerCase().includes(testAssignee.toLowerCase())) ||
+        (c.notaryName && c.notaryName.toLowerCase().includes(testAssignee.toLowerCase()));
+      expect(match).toBe(true);
+    }
+
+    // Test pagination skip and take
+    const page1 = await getCases(DEMO_NOTARIAT_CONTEXT, { take: 2, skip: 0 });
+    const page2 = await getCases(DEMO_NOTARIAT_CONTEXT, { take: 2, skip: 2 });
+    if (page1.length === 2 && page2.length > 0) {
+      expect(page1[0].id).not.toBe(page2[0].id);
+    }
+  });
+  it("edits a case while preserving metadata and refuses foreign tenant writes", async () => {
+    const target = await createCase(DEMO_NOTARIAT_CONTEXT, { caseNumber: `EDIT-${Date.now()}`, title: "Originaler Testtitel", matterType: "REAL_ESTATE", status: "DRAFT", parties: [{ role: "Käufer", name: "Testperson" }] });
+    const changed = await updateCase(DEMO_NOTARIAT_CONTEXT, target.id, { title: "Geänderter Testtitel", status: "IN_REVIEW" });
+    expect(changed.parties[0].name).toBe("Testperson");
+    expect((await getCaseById(DEMO_NOTARIAT_CONTEXT, target.id))?.title).toBe("Geänderter Testtitel");
+    await expect(updateCase({ ...DEMO_NOTARIAT_CONTEXT, organizationId: "org_e2e_b" }, target.id, { title: "Fremde Änderung" })).rejects.toThrow();
+    expect((await getCaseById(DEMO_NOTARIAT_CONTEXT, target.id))?.title).toBe("Geänderter Testtitel");
+  });
+
+});
+
+describe("case editing concurrency and permissions", () => {
+  it("allows only one concurrent save from the same case revision", async () => {
+    const record = await createCase(DEMO_NOTARIAT_CONTEXT, { caseNumber: `EDIT-${Date.now()}`, title: "Parallele Bearbeitung", matterType: "REAL_ESTATE", status: "DRAFT", parties: [] });
+    const results = await Promise.allSettled([
+      updateCase(DEMO_NOTARIAT_CONTEXT, record.id, { title: "Erste Änderung" }, record.updatedAt),
+      updateCase(DEMO_NOTARIAT_CONTEXT, record.id, { title: "Zweite Änderung" }, record.updatedAt),
+    ]);
+    expect(results.filter((result) => result.status === "fulfilled")).toHaveLength(1);
+    expect(results.filter((result) => result.status === "rejected")).toHaveLength(1);
+    expect(await getPrismaClient()!.auditEvent.count({ where: { organizationId: DEMO_NOTARIAT_CONTEXT.organizationId, entityId: record.id, action: "CASE_UPDATED" } })).toBe(1);
+    await deleteCase(DEMO_NOTARIAT_CONTEXT, record.id);
+  });
+
+  it("clears optional data without permitting viewers or foreign tenants to write", async () => {
+    const record = await createCase(DEMO_NOTARIAT_CONTEXT, { caseNumber: `CLEAR-${Date.now()}`, title: "Optionale Angaben löschen", matterType: "REAL_ESTATE", status: "DRAFT", description: "Notiz", notaryName: "Testnotarin", targetDate: "2027-05-01T08:00:00Z", parties: [{ name: "Test Person", role: "Käufer", nationality: "DE" }], propertyDetails: { sheetNumber: "123" } });
+    await expect(updateCase({ ...DEMO_NOTARIAT_CONTEXT, userRole: "VIEWER" }, record.id, { title: "Unerlaubter Titel" }, record.updatedAt)).rejects.toThrow(/Lesezugriff/);
+    await expect(updateCase({ ...DEMO_NOTARIAT_CONTEXT, organizationId: "org_e2e_b" }, record.id, { title: "Fremder Titel" }, record.updatedAt)).rejects.toThrow(CaseNotFoundError);
+    const cleared = await updateCase(DEMO_NOTARIAT_CONTEXT, record.id, { description: "", notaryName: "", targetDate: "", parties: [], propertyDetails: {} }, record.updatedAt);
+    expect(cleared.description).toBe(""); expect(cleared.notaryName).toBe(""); expect(cleared.targetDate).toBeNull();
+    expect(cleared.parties).toEqual([]); expect(cleared.propertyDetails).toEqual({});
+    await deleteCase(DEMO_NOTARIAT_CONTEXT, record.id);
   });
 });

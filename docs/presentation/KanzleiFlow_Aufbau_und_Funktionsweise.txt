@@ -1,0 +1,172 @@
+KANZLEIFLOW – AUFBAU UND FUNKTIONSWEISE
+Stand: 16. Oktober 2026
+Erklärhilfe für Präsentation und technisches Vorstellungsgespräch
+
+1. WAS IST KANZLEIFLOW?
+
+KanzleiFlow ist eine Webanwendung zur digitalen Bearbeitung notarieller Akten. Sie verbindet Aktenstammdaten, Dokumentenprüfung, strukturierte Vertragserstellung und die Vorbereitung von Exportpaketen in einer Oberfläche.
+
+Die Anwendung ist mandantenfähig: Mehrere Notariate können dieselbe Anwendung verwenden, ihre Daten bleiben organisatorisch getrennt. Mit „Mandant“ ist hier das jeweilige Notariat als Organisation gemeint, nicht ein einzelner Beteiligter eines Vertrags.
+
+Der aktuelle Stand ist eine technisch demonstrierbare Anwendung mit synthetischen Testdaten. Die Vertragsvorlagen und XNP-Pakete sind technische Prototypen. Eine fachliche Freigabe für echte notarielle Arbeit oder eine bestätigte amtliche Schnittstellenkompatibilität wird nicht behauptet.
+
+2. WIE IST DIE OBERFLÄCHE AUFGEBAUT?
+
+Übersicht:
+Zeigt die Zahl der Akten, ihre Bearbeitungsstände und zuletzt bearbeitete Vorgänge. Von dort kann man eine Akte öffnen oder eine neue anlegen.
+
+Aktenverwaltung:
+Enthält Suche, Statusfilter, Filter nach Rechtsgebiet und Zuständigkeit sowie eine Seitennavigation für längere Listen.
+
+Aktenanlage:
+Erfasst Aktenzeichen, Bezeichnung, Rechtsgebiet, Status, Notizen, zuständigen Notar, Sachbearbeitung und Termin. Hinzu kommen Beteiligte, Grundstücksdaten, finanzielle Angaben und besondere Register- oder Nachlassinformationen. Vorlagen können ausdrücklich fiktive Beispieldaten einsetzen.
+
+Aktenansicht:
+Fasst Stammdaten und Beteiligte zusammen. Sie enthält den Dokumentenablauf, den XNP-Bereich und ein Ereignisprotokoll. Sprunglinks führen direkt zu den wichtigsten Bereichen.
+
+Aktenbearbeitung:
+Über „Akte bearbeiten“ werden bestehende Angaben in das gemeinsame Formular geladen. Änderungen werden ausdrücklich gespeichert. Optionale Angaben lassen sich wieder entfernen. Die Bearbeitung verändert keine bereits erzeugten Dokumentversionen oder früheren Exportpakete.
+
+Konfigurator:
+Führt in sechs Schritten durch einen Immobilienkaufvertrag: Beteiligte, Grundstück, Kaufpreis, Regelungen, Prüfung und Entwurf. Es handelt sich um einen spezialisierten Ablauf; andere Rechtsgebiete besitzen noch keinen vergleichbaren vollständigen Konfigurator.
+
+3. TECHNISCHER AUFBAU
+
+Frontend und Server:
+Next.js 16.4 mit App Router und React 19. TypeScript unterstützt die Typprüfung. Tailwind CSS definiert die Darstellung. Die Hauptoberfläche nutzt Marineblau und neutrale Farben, unterstützt helle und dunkle Darstellung und passt sich an kleinere Bildschirme an.
+
+Server Components laden zum Beispiel Akten und Übersichten auf dem Server. Client Components übernehmen interaktive Formulare, Uploads und den Konfigurator. Änderungen gelangen über Server Actions oder HTTP-Endpunkte zur Serverlogik.
+
+Wichtige Projektverzeichnisse:
+- src/app: Seiten, Server Actions und API-Endpunkte.
+- src/components: gemeinsame Oberflächenelemente, etwa Navigation und Statusanzeigen.
+- src/lib/services: fachliche Verarbeitung von Akten, Dokumenten, Extraktionen und Entwürfen.
+- src/lib/auth: Anmeldung und Ermittlung des aktiven Notariats.
+- src/lib/configurator: Formularmodell, Klauselauswahl, Validierung und Vertragserstellung.
+- src/lib/integrations/xnp: Exportdaten, Prüfungen, XML- und ZIP-Erstellung.
+- src/lib/queue: datenbankgestützte Hintergrundaufträge.
+- src/lib/storage: Dateispeicherung und Abruf.
+- prisma: Datenmodell und SQL-Migrationen.
+- e2e: automatisierte Browserprüfungen.
+- docs: Architektur, Betrieb, Integrationen und aktueller Projektstand.
+
+Datenbank:
+PostgreSQL speichert unter anderem Organisationen, Mitgliedschaften, Akten, Dokumentdatensätze, Extraktionen, Konfigurationen, erzeugte Versionen, Exportnachweise und Hintergrundaufträge. Prisma ORM 7 mit PostgreSQL-Adapter vermittelt zwischen TypeScript und der Datenbank. Ein Teil der strukturierten Aktenangaben wird als JSON-Metadaten gespeichert.
+
+Dateien:
+Originaldokumente und erzeugte DOCX-Dateien werden über eine eigene Speicherschicht verwaltet. Geschützte Downloads prüfen die Zuordnung zum angemeldeten Notariat. Die Testumgebung verwendet einen eigenen temporären Dateibereich.
+
+4. WAS PASSIERT BEIM SPEICHERN EINER AKTE?
+
+Der Ablauf lautet:
+Formular -> Server Action -> Anmeldung und Notariat ermitteln -> Eingaben mit Zod prüfen -> Aktenservice -> Prisma -> PostgreSQL -> betroffene Ansichten aktualisieren.
+
+Die Organisation wird auf dem Server aus der Sitzung bestimmt. Ein vom Browser gesendeter Organisationswert wird nicht als Berechtigung akzeptiert.
+
+Ein bereits vergebenes Aktenzeichen führt zu einer verständlichen Fehlermeldung. Nach einem Fehler bleiben die Formularangaben zur Korrektur erhalten. Während des Speicherns werden weitere Eingaben und erneute Übermittlungen gesperrt.
+
+Beim Bearbeiten wird der ursprünglich geladene Änderungszeitpunkt mitgesendet. Die Datenbankänderung ist an diesen Stand gebunden. Hat inzwischen jemand anderes gespeichert, wird ein veralteter Speicherauftrag abgewiesen. Dadurch überschreibt ein zweiter Tab nicht unbemerkt den ersten.
+
+Erfolgreiche Änderungen werden als Ereignis protokolliert. Die gespeicherten Daten und der zugehörige Änderungsnachweis werden gemeinsam in einer Datenbanktransaktion verarbeitet. Nutzer mit Lesezugriff dürfen über diesen Bearbeitungsweg keine Änderungen speichern.
+
+5. WIE FUNKTIONIERT DER DOKUMENTENABLAUF?
+
+Schritt 1 – Hochladen:
+Eine unterstützte Text- oder PDF-Datei wird einer Akte zugeordnet. Unzulässige Dateitypen werden abgewiesen. Der Upload ist vom strukturierten Inhaltsextraktionsschritt getrennt.
+
+Schritt 2 – Texterkennung und Strukturierung:
+Aus einer PDF wird vorhandener Text extrahiert. Eine vollständig gescannte Bild-PDF benötigt eine OCR-Erweiterung; diese ist noch kein fertiger Bestandteil des Ablaufs. Für strukturierte Angaben gibt es eine Gemini-Anbindung und einen Mock-Modus mit synthetischen Ergebnissen.
+
+Schritt 3 – Menschliche Prüfung:
+Die Oberfläche zeigt ermittelte Angaben an. Ein Nutzer korrigiert sie, speichert sie und gibt sie ausdrücklich frei. Eine KI-Ausgabe gilt also nicht automatisch als geprüft.
+
+Schritt 4 – DOCX erzeugen:
+Aus den geprüften Angaben wird ein Word-Entwurf erzeugt. Die Erstellung verwendet die docx-Bibliothek und baut das OpenXML-Dokument programmgesteuert auf.
+
+Schritt 5 – Versionen:
+Eine weitere Erzeugung erstellt eine neue Version. Bereits vorhandene Versionen werden nicht mit aktuellen Daten überschrieben. Gespeicherte Erstellungsdaten sichern den historischen Stand. Sehr alte Versionen ohne Originaldatei und ohne Erstellungsmetadaten können nicht zuverlässig unverändert wiederhergestellt werden; hierfür gibt es eine ausdrückliche Fehlermeldung.
+
+6. WIE UNTERSCHEIDET SICH DER KONFIGURATOR?
+
+Der Dokumentenablauf beginnt bei einer hochgeladenen Datei. Der Konfigurator beginnt bei strukturierten Formularangaben für einen Immobilienkaufvertrag. Freigegebene Extraktionsdaten können übernommen werden.
+
+Der Konfigurator prüft Pflichtangaben und Klauselkombinationen. Änderungen werden automatisch gespeichert. Die Speicherung wird innerhalb eines Tabs koordiniert; konkurrierende Bearbeitungen werden über Versionsstände erkannt. Vor der Dokumenterzeugung müssen die aktuellen Angaben gespeichert sein.
+
+Die normale Aktenbearbeitung speichert dagegen bewusst erst über „Änderungen speichern“. Aktenstammdaten, Konfigurationsentwürfe und bereits erzeugte Vertragsversionen sind unterschiedliche Datenstände und sollten in einer Präsentation nicht gleichgesetzt werden.
+
+7. WIE FUNKTIONIERT XNP?
+
+Der Exportbereich bietet Formate für Grundbuch/XNotar, Urkundenverzeichnis und eNoVA an. Vor der Erstellung werden Pflichtangaben geprüft.
+
+Die Exportdaten entstehen aus Aktenstammdaten sowie geeigneten menschlich freigegebenen Dokumentdaten und erzeugten Konfigurator-Versionen. Bloß ungeprüfte KI-Ergebnisse oder nur gespeicherte Beispieldaten aus einem Konfigurator werden nicht automatisch als freigegebene Grundlage verwendet.
+
+Der zuvor gemeldete Zuordnungsfehler bei Vertragspartnern wurde durch eine gemeinsame Datenauflösung für Validierung und Exporterstellung korrigiert. Tatsächlich fehlende Angaben bleiben weiterhin sichtbare Fehler.
+
+Ein Paket wird als ZIP mit XML-Inhalten und Metadaten heruntergeladen. Ein unvollständiger Entwurf setzt eine ausdrückliche Auswahl voraus. Frühere Exportstände werden mit Prüfsummen dokumentiert.
+
+Wichtige Grenze: Die lokale XNP-Anwendung läuft auf dem Arbeitsplatzrechner. Eine direkte Verbindung aus einer Cloud-Webanwendung ist derzeit nicht umgesetzt. Ebenso fehlen der bestätigte Import in eine reale XNP-Testinstallation und die vollständige Prüfung gegen offizielle Schemas. Daher heißt die Funktion bewusst „technischer Prototyp“.
+
+8. WAS KANN DAS WORD ADD-IN?
+
+Das Add-in bietet eine Word-Aufgabenleiste und verwendet Office.js. Es kann über geschützte Endpunkte auf Akteninformationen zugreifen und ist für das Einfügen strukturierter Angaben in ein Word-Dokument ausgelegt.
+
+Die Browseransicht und die Berechtigungsgrenzen der Endpunkte sind automatisiert geprüft. Installation und Einfügen in einem echten Word-Host sind noch separat zu bestätigen. Eine automatische Rücksynchronisierung beliebiger Änderungen aus Word in die Akte ist eine spätere Erweiterung.
+
+9. MANDANTENTRENNUNG UND ZUVERLÄSSIGKEIT
+
+Ein Nutzer gehört über Mitgliedschaften zu einer oder mehreren Organisationen. Die Serverlogik ermittelt die aktive Organisation aus der Sitzung und prüft Datenzugriffe gegen diese Organisation.
+
+Besonders wichtig: Die verwendete Datenbankrolle kann Row Level Security umgehen. Deshalb ist die Filterung und Besitzprüfung in der Anwendung entscheidend. Die bloße Existenz einer Organisationsspalte wäre kein ausreichender Schutz.
+
+Die Anmeldung unterstützt Supabase sowie einen ausdrücklich begrenzten lokalen Demo-Fallback mit signierten Sitzungstokens. Der reale Supabase-Ablauf muss zusätzlich gegen eine externe Testinstanz geprüft werden.
+
+Für Hintergrundarbeit gibt es eine PostgreSQL-Warteschlange mit Sperren über FOR UPDATE SKIP LOCKED und der Wiederaufnahme veralteter Aufträge. Ein dauerhaft betriebener Worker und dessen Produktionsüberwachung sind noch eine Betriebsaufgabe.
+
+10. WIE WIRD GETESTET?
+
+Die automatisierten Tests verwenden eine frische lokale PostgreSQL-Instanz mit synthetischen Daten, eigener Dateispeicherung und geprüften Migrationen. Entwicklungs- oder Produktionszugänge werden nicht übernommen. Nach dem Lauf werden die Testdaten wieder entfernt.
+
+Vitest prüft Services, Datenbankverhalten, Berechtigungen, Versionen und Konkurrenzfälle. Playwright führt echte Browserabläufe aus: Aktenanlage, Suche und Filter, Dokumentenprüfung, DOCX-Erzeugung, Konfigurator, Exportdownload und Aktenbearbeitung. Zusätzliche Prüfungen decken helle/dunkle Darstellung und mobile Bildschirmgrößen ab.
+
+TypeScript, ESLint und ein Produktionsbuild ergänzen diese Prüfungen. Erfolgreiche Tests ersetzen keine fachliche Freigabe und beweisen keinen erfolgreichen Austausch mit nicht verfügbaren externen Systemen.
+
+Die genauen Abschlusszahlen stehen am Ende dieser Datei.
+
+11. VORSCHLAG FÜR EINE KURZE PRÄSENTATION
+
+„KanzleiFlow verbindet die Aktenverwaltung eines Notariats mit einem geprüften Dokumentenablauf. Ich kann eine Akte anlegen, Beteiligte und Grundstücksdaten erfassen und die Angaben später bearbeiten. Parallele Änderungen werden erkannt, statt sich gegenseitig unbemerkt zu überschreiben.
+
+Bei Dokumenten erfolgt die Verarbeitung in nachvollziehbaren Schritten: hochladen, strukturieren, korrigieren, freigeben und einen versionierten Word-Entwurf erzeugen. Alternativ führt ein Konfigurator durch einen Immobilienkaufvertrag und prüft Pflichtangaben sowie Klauselkombinationen.
+
+Technisch verwendet die Anwendung Next.js und TypeScript sowie PostgreSQL mit Prisma. Die Trennung der Notariate wird auf dem Server bei den Datenzugriffen durchgesetzt. Eine isolierte Testdatenbank ermöglicht wiederholbare Service- und Browserprüfungen.
+
+Die lokalen Abläufe sind demonstrierbar. Bei XNP und Word unterscheide ich transparent zwischen implementierter technischer Vorbereitung und noch ausstehender Prüfung in den echten externen Systemen.“
+
+12. TYPISCHE RÜCKFRAGEN
+
+Warum keine automatische Freigabe der KI-Ausgabe?
+Weil extrahierte Angaben falsch oder unvollständig sein können. Die Anwendung verlangt eine menschliche Prüfung vor der Freigabe.
+
+Warum eine eigene Versionshistorie?
+Damit ein früher erzeugter Vertragsstand erhalten bleibt und spätere Änderungen nicht rückwirkend historische Dokumente verändern.
+
+Warum eine isolierte Datenbank für Tests?
+Damit Tests wiederholbar sind und weder echte Akten verändern noch von vorhandenen Entwicklungsdaten abhängen.
+
+Was ist die nächste Priorität?
+Die tatsächliche Prüfung des Word Add-ins in Word und der Exportpakete in einer geeigneten XNP-Testumgebung. Vor einem echten Betrieb folgen außerdem Rollenprüfung, Migrationsbaseline, Produktionskonfiguration und Worker-Betrieb.
+
+
+13. TATSÄCHLICHER PRÜFSTAND NACH ABSCHLUSS DER AKTENBEARBEITUNG
+
+- Automatisierte Service-/Datenbanktests: 153 bestanden, 1 Live-Gemini-Test übersprungen, 24 Testdateien.
+- Vollständiger Browserlauf: 11 von 11 Abläufen bestanden. Nach abschließenden Formularanpassungen wurden Aktenanlage und der erweiterte Bearbeitungsablauf nochmals gezielt erfolgreich geprüft.
+- TypeScript-Prüfung, ESLint und Produktionsbuild: erfolgreich.
+- Bearbeitung geprüft mit zwei Tabs, fremden Akten, doppeltem Aktenzeichen, einem absichtlich unterbrochenen Netzwerkaufruf, Wiederholung, Terminen in Europe/Berlin, Nachkommabeträgen, optionalen Leerwerten und schmaler Mobilansicht.
+- Der produktive Dauerbetrieb und echte externe Word-/XNP-/Gemini-/Supabase-Nachweise bleiben von diesen lokalen Prüfergebnissen getrennt.
+
+Für die Demonstration mit ausschließlich synthetischen Daten:
+Im Projektordner „npm run test:serve“ starten, dann http://127.0.0.1:3100 öffnen.
+Tests und Demonstration nacheinander ausführen, da sie denselben lokalen Testdatenbank-Port verwenden.
+Dieser Demonstrationsbetrieb verwendet Mock-Extraktion. Er zeigt keinen bestätigten Live-KI-Aufruf.
+Zum Beenden Ctrl+C drücken; die isolierten Daten und Dateien werden entfernt.

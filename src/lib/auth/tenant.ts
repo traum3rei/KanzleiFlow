@@ -26,6 +26,8 @@ import { getPrismaClient } from "@/lib/db";
 import {
   getAuthenticatedSession,
   getActiveOrgCookie,
+  extractBearerToken,
+  getSessionFromBearerToken,
   SessionPayload,
 } from "./session";
 
@@ -277,4 +279,26 @@ export function assertTenantOwnership(
       `Tenant Isolation Violation: Access denied to resource from foreign organization (${entityOrgId})`
     );
   }
+}
+
+/**
+ * Resolves verified TenantContext for Microsoft Word Add-in API requests.
+ * Checks for Authorization: Bearer <token> first, ensuring embedded WebViews
+ * without cookie access authenticate seamlessly and securely.
+ */
+export async function getAddinTenantContext(req: Request): Promise<TenantContext> {
+  const bearerToken = extractBearerToken(req);
+  if (bearerToken) {
+    const session = getSessionFromBearerToken(bearerToken);
+    if (!session) {
+      throw new AuthenticationRequiredError(
+        "Ungültiger oder abgelaufener Authentifizierungs-Token für das Word Add-in. Bitte melden Sie sich erneut an."
+      );
+    }
+    const requestedOrgId = req.headers.get("x-kanzleiflow-org-id");
+    return resolveTenantContextFromUser(session, requestedOrgId);
+  }
+
+  // Fallback to standard cookie session
+  return getTenantContext();
 }

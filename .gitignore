@@ -34,6 +34,8 @@ yarn-error.log*
 .env*
 !.env.example
 
+*.md
+!README.md
 
 # vercel
 .vercel
@@ -45,3 +47,8 @@ next-env.d.ts
 /storage/
 /.storage/
 
+
+/.test-data/
+/test-results/
+/playwright-report/
+/.next-e2e/

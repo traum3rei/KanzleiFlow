@@ -8,7 +8,7 @@
 @theme inline {
   --color-background: var(--background);
   --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-mono), ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+  --font-sans: var(--font-geist-sans), Arial, Helvetica, sans-serif;
   --font-mono: var(--font-geist-mono), ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
 }
 
@@ -22,7 +22,7 @@
 body {
   background-color: var(--background);
   color: var(--foreground);
-  font-family: var(--font-mono);
+  font-family: var(--font-sans);
   letter-spacing: -0.015em;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
@@ -42,4 +42,60 @@ body {
 }
 ::-webkit-scrollbar-thumb:hover {
   background: rgba(148, 163, 184, 0.7);
+}
+
+/* Shared readable typography and keyboard interaction across the product. */
+:where(button, a, input, select, textarea):focus-visible {
+  outline: 2px solid #4f46e5;
+  outline-offset: 3px;
+}
+button:disabled { cursor: not-allowed; }
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after { animation-duration: 0.01ms !important; transition-duration: 0.01ms !important; }
+}
+
+/* A shared surface and spacing system keeps the workspace consistent. */
+@theme {
+  --color-blue-500: #4b83bd;
+  --color-blue-600: #3667a2;
+  --color-blue-800: #243e64;
+  --color-blue-900: #1c3050;
+  --color-blue-950: #14253e;
+  --color-zinc-50: #f5f7fa;
+  --color-zinc-100: #edf1f5;
+  --color-zinc-200: #dce2ea;
+  --color-zinc-300: #bdc7d4;
+  --color-zinc-400: #667a92;
+  --color-zinc-500: #586c85;
+  --color-zinc-600: #4d6078;
+  --color-zinc-700: #384c65;
+  --color-zinc-800: #29384e;
+  --color-zinc-900: #19263a;
+  --color-zinc-950: #111c2d;
+}
+
+body { letter-spacing: normal; line-height: 1.6; }
+.app-shell { background: #f5f7fa; }
+.app-shell main { padding-top: 2rem; padding-bottom: 3rem; }
+.app-shell h1 { font-size: clamp(1.5rem, 3vw, 1.875rem); line-height: 1.25; font-weight: 650; }
+.app-shell h2 { line-height: 1.4; font-size: 1.125rem; letter-spacing: -0.015em; }
+.app-shell :where(input:not([type="checkbox"]):not([type="radio"]):not([type="file"]), select, textarea) {
+  min-height: 2.75rem;
+  font-size: 0.875rem;
+  line-height: 1.5;
+}
+.app-shell :where(button:not([role="switch"]), a[class*="px-3"]) { min-height: 2.5rem; }
+.app-shell :where(input[type="checkbox"], input[type="radio"]) { width: 1rem; height: 1rem; flex-shrink: 0; accent-color: #243e64; }
+.app-shell :where(th, td) { padding-top: 0.875rem; padding-bottom: 0.875rem; }
+.section-link { padding: .5rem 1rem; border-radius: .5rem; color: #384c65; font-size: .875rem; font-weight: 500; }
+.section-link:hover { background: #edf1f5; color: #243e64; }
+@media (prefers-color-scheme: dark) {
+  :root { --background: #0c1422; --foreground: #edf1f5; color-scheme: dark; --color-zinc-400: #aab8ca; --color-zinc-500: #94a3b8; }
+  .app-shell { background: #0c1422; }
+  .section-link { color: #bdc7d4; }
+  .section-link:hover { background: #19263a; color: #bfdbfe; }
+}
+@media (max-width: 640px) {
+  .app-shell main { padding-top: 1.25rem; }
+  .app-shell :where(section, article, fieldset) { min-width: 0; }
 }

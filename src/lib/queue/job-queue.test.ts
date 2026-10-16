@@ -1,6 +1,4 @@
 import { describe, it, expect, beforeEach } from "vitest";
-import { config } from "dotenv";
-config({ path: ".env.local" });
 
 import { getPrismaClient } from "@/lib/db";
 import { enqueueJob, getJobById, cancelJob, getQueueMetrics } from "./job-queue";
