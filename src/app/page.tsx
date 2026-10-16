@@ -51,21 +51,22 @@ export default async function DashboardPage() {
             </p>
           </div>
           <div className="flex items-center gap-2">
-            <Link
-              href="/cases"
-              prefetch={true}
-              className="px-3 py-1.5 text-sm font-sans rounded-lg border border-zinc-300 dark:border-zinc-700 bg-white dark:bg-zinc-900 text-zinc-800 dark:text-zinc-200 hover:bg-zinc-100 dark:hover:bg-zinc-800  transition-colors duration-150"
-            >
-              Alle Akten ({stats.totalCases})
-            </Link>
-            <Link
-              href="/cases/new"
-              prefetch={true}
-              className="inline-flex items-center gap-1.5 px-3 py-1.5 text-sm font-sans font-medium text-white bg-blue-800 hover:bg-blue-900 dark:bg-blue-600 dark:text-white dark:hover:bg-blue-500 rounded-lg  transition-colors duration-150"
-            >
-              <span>+ Neue Akte anlegen</span>
-            </Link>
-          </div>
+          <Link
+            href="/cases"
+            prefetch={true}
+            className="inline-flex h-9 items-center justify-center px-3 text-sm font-sans rounded-lg border border-zinc-300 dark:border-zinc-700 bg-white dark:bg-zinc-900 text-zinc-800 dark:text-zinc-200 hover:bg-zinc-100 dark:hover:bg-zinc-800 transition-colors duration-150"
+          >
+            Alle Akten ({stats.totalCases})
+          </Link>
+
+          <Link
+            href="/cases/new"
+            prefetch={true}
+            className="inline-flex h-9 items-center justify-center gap-1.5 px-3 text-sm font-sans font-medium text-white bg-blue-800 hover:bg-blue-900 dark:bg-blue-600 dark:text-white dark:hover:bg-blue-500 rounded-lg transition-colors duration-150"
+          >
+            + Neue Akte anlegen
+          </Link>
+        </div>
         </div>
 
         {/* KPI Metrics Bento Grid */}
