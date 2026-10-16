@@ -149,8 +149,8 @@ describe("Document Processing Workflow Vertical Slice", () => {
       expect(output).toContain("Flur 14, Flurstück 88/2");
       expect(output).toContain("Geh- und Fahrtrecht");
       expect(output).toContain("SYNTHETISCHER DEMO-DATENSATZ");
-      expect(output).toContain("Geldwäschegesetz GwG § 11 ff.");
-      expect(output).toContain("Human-in-the-Loop");
+      expect(output).toContain("Nicht von juristischen Fachpersonen geprüft");
+      expect(output).toContain("nicht für echte Rechtsgeschäfte");
     });
 
     it("clearly surfaces unresolved missing fields in draft header if any were approved with warnings", () => {

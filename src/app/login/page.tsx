@@ -1,12 +1,12 @@
 import { connection } from "next/server";
-import { isProductionEnvironment } from "@/lib/auth/tenant";
+import { isDemoLoginEnabled } from "@/lib/auth/demo";
 import { LoginForm } from "./login-form";
 
 export const instant = false;
 
 export default async function LoginPage() {
   await connection();
-  const isProd = isProductionEnvironment() || process.env.ALLOW_DEMO_AUTH === "false";
+
 
   return (
     <div className="app-shell min-h-screen bg-white dark:bg-zinc-950 flex flex-col justify-center items-center p-4 sm:p-6 font-sans tracking-tight text-zinc-900 dark:text-zinc-100">
@@ -14,7 +14,7 @@ export default async function LoginPage() {
         {/* Header */}
         <div className="text-center space-y-2">
           <div className="w-9 h-9 rounded bg-zinc-900 dark:bg-zinc-100 text-white dark:text-zinc-950 flex items-center justify-center text-lg font-bold mx-auto">
-            §
+            KF
           </div>
           <h1 className="text-sm font-bold tracking-tight text-zinc-900 dark:text-white pt-1">
             KanzleiFlow Anmeldung
@@ -25,12 +25,12 @@ export default async function LoginPage() {
         </div>
 
         {/* Form */}
-        <LoginForm allowDemoLogin={!isProd} />
+        <LoginForm allowDemoLogin={isDemoLoginEnabled()} />
 
         {/* Security Footer Notice */}
         <div className="pt-4 border-t border-zinc-200 dark:border-zinc-800 text-center space-y-1">
           <p className="text-xs text-zinc-400">
-            Geschütztes System gem. § 203 StGB & DONot.
+            Technische Demo · Keine juristische Prüfung.
           </p>
           <p className="text-xs text-zinc-500 font-sans">
             Zugriff nur für berechtigte Mitarbeitende

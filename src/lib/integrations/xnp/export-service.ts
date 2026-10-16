@@ -115,7 +115,7 @@ export async function generateXnpExportPackage(
     exportId,
     exportType: options.exportType,
     formatVersion: "1.0.0",
-    specificationReference: "Bundesnotarkammer Onlinehilfe (Stand 2025/2026) / XJustiz v3.0",
+    specificationReference: "Ungeprüfter technischer Entwurf; keine amtliche Schemafreigabe",
     generatedAt: new Date().toISOString(),
     organizationId: tenant.organizationId,
     organizationName: tenant.organizationName,
@@ -126,7 +126,7 @@ export async function generateXnpExportPackage(
     isAuthoritative: validationReport.isAuthoritative,
     compatibilityLevel: "PROTOTYPE_SPECIFICATION_ALIGNED",
     compatibilityNotice:
-      "Dieser Datensatz wurde gemäß den öffentlich dokumentierten BNotK-Schnittstellenvorgaben für XNP und XNotar erzeugt. Die finale elektronische Übermittlung an Register oder Urkundenverzeichnisse erfordert ein durch die BNotK zertifiziertes Notarnet-Zugangssystem mit qualifizierter Signatur.",
+      "Technisches Demo-Paket. Nicht juristisch geprüft; keine bestätigte offizielle XNP-Kompatibilität, Schemafreigabe oder Behördenübertragung.",
     attachments: attachments.map((a) => ({
       fileName: a.fileName,
       fileSize: a.buffer.length,

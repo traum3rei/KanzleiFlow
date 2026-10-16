@@ -1,7 +1,9 @@
 import { getPrismaClient, getRawPgPool } from "../../src/lib/db";
+import { provisionPortfolioDemo } from "../../src/lib/services/portfolio-demo";
 const prisma = getPrismaClient();
 if (!prisma || process.env.KANZLEIFLOW_TEST_RUN !== "isolated") throw new Error("Isolated test runner required.");
 async function main() {
+  await provisionPortfolioDemo(prisma!);
   await prisma!.organization.create({ data: { id: "org_notariat_weiss_01", name: "Synthetisches Testnotariat A", slug: "notariat-weiss-partner" } });
   await prisma!.user.create({ data: { id: "usr_notary_weiss_01", email: "j.weiss@notariat-weiss-partner.de", fullName: "Testnotar A" } });
   await prisma!.organizationMember.create({ data: { organizationId: "org_notariat_weiss_01", userId: "usr_notary_weiss_01", role: "NOTARY" } });

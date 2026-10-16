@@ -94,7 +94,7 @@ function getPresetData(presetName: string): FormPresetData {
       matterType: "INHERITANCE",
       title: "Erbscheinsantrag nach Johann Becker",
       caseNumber: suggestedAZ,
-      description: "Gesetzliche Erbfolge nach Erblasser. 2 Miterben zu gleichen Teilen. Vorbereitung der eidesstattlichen Versicherung gem. § 352 FamFG.",
+      description: "Fiktives Nachlassbeispiel mit zwei Beteiligten. Ausschließlich zur Demonstration der Datenerfassung.",
       parties: [
         {
           role: "Erblasser",
@@ -527,7 +527,7 @@ export function CaseForm({ initialPreset, initialCase, assignees = [] }: CaseFor
               3. Beteiligte & Parteien ({parties.length})
             </h2>
             <p className="text-sm text-zinc-500 dark:text-zinc-400 mt-0.5">
-              Vollständige Angaben für Legitimation (§ 10 BeurkG), GwG und Finanzamtsmeldung (§ 139b AO)
+              Beispielhafte Angaben für das Datenmodell. Keine Identitäts-, Geldwäsche- oder Steuerprüfung.
             </p>
           </div>
           <button
@@ -624,9 +624,9 @@ export function CaseForm({ initialPreset, initialCase, assignees = [] }: CaseFor
                 </div>
                 <div>
                   <label className="block text-xs font-medium text-zinc-500 mb-1">
-                    Steuer-ID (§ 139b AO)
+                    Steuer-ID (fiktiv)
                   </label>
-                  <input aria-label="Steuer-ID (§ 139b AO)"
+                  <input aria-label="Steuer-ID (fiktiv)"
                     type="text"
                     name="partyTaxId"
                     value={party.taxId || ""}
@@ -666,9 +666,9 @@ export function CaseForm({ initialPreset, initialCase, assignees = [] }: CaseFor
               {/* Row 3: Familienstand / Güterstand */}
               <div className="pt-1">
                 <label className="block text-xs font-medium text-zinc-500 mb-1">
-                  Familien- & Güterstand (optional, z. B. verheiratet in Zugewinngemeinschaft für § 1365 BGB)
+                  Familien- und Güterstand (illustrativ, optional)
                 </label>
-                <input aria-label="Familien- & Güterstand (optional, z. B. verheiratet in Zugewinngemeinschaft für § 1365 BGB)"
+                <input aria-label="Familien- und Güterstand (illustrativ, optional)"
                   type="text"
                   name="partyMaritalStatus"
                   value={party.maritalStatus || ""}
@@ -786,7 +786,7 @@ export function CaseForm({ initialPreset, initialCase, assignees = [] }: CaseFor
             5. Gegenleistung & Kaufpreis / Geschäftswert
           </h2>
           <p className="text-sm text-zinc-500 dark:text-zinc-400 mt-0.5">
-            Zahlungsmodalitäten und Gebührenberechnungsgrundlage (§ 34 GNotKG)
+            Illustrative Beträge und Zahlungsangaben · Keine Gebührenberechnung
           </p>
         </div>
 

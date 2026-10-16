@@ -28,7 +28,7 @@ test("case creation, search, filters, pagination and mobile layout", async ({ pa
   await page.screenshot({ path: "test-results/dashboard-desktop.png" });
   await page.goto("/cases/new");
   await page.screenshot({ path: "test-results/case-form-desktop.png" });
-  await page.getByRole("button", { name: /\[immo\]/ }).click();
+  await page.getByRole("button", { name: /Grundstückskauf/ }).click();
   await page.getByLabel("Aktenzeichen", { exact: false }).fill("E2E-NEU-2026");
   await page.getByLabel("Vorgangsbezeichnung", { exact: false }).fill("E2E Neu angelegte Testakte");
   await page.getByRole("button", { name: "Akte anlegen", exact: true }).click();
@@ -321,4 +321,33 @@ test("case edit preserves inputs on errors, saves and clears data, rejects stale
   await expect(page.getByRole("heading", { name: "Akte nicht gefunden", exact: true })).toBeVisible();
 });
 
+});
+
+test("public portfolio demo is visible, usable and isolated under configured runtime", async ({ page, context }) => {
+  await context.clearCookies();
+  expect((await page.request.get("/api/cases/e2e_case_0")).status()).toBe(401);
+  await page.goto("/login");
+  await expect(page.getByRole("complementary", { name: "Demo-Hinweis" })).toContainText("Nicht von juristischen Fachpersonen geprüft");
+  await page.screenshot({ path: "test-results/demo-login-public.png" });
+  await page.getByRole("button", { name: "Demo-Zugang verwenden", exact: true }).click();
+  await expect(page).toHaveURL(/\/cases$/);
+  await expect(page.getByRole("main").getByText("Fiktives Immobilienbeispiel", { exact: true })).toBeVisible();
+  const sessionCookie = (await context.cookies()).find((cookie) => cookie.name === "kanzleiflow_session")!;
+  const identity = JSON.parse(Buffer.from(sessionCookie.value.split(".")[0], "base64url").toString());
+  expect(identity.demoOrganizationId).toBe("org_portfolio_demo");
+  expect((await page.request.get("/api/cases/e2e_case_0")).status()).toBe(403);
+  await page.screenshot({ path: "test-results/portfolio-demo.png" });
+  const navigation = page.getByRole("banner");
+  const marker = await navigation.evaluate((element) => element.outerHTML);
+  const retainedNavigation = await navigation.elementHandle();
+  await page.getByRole("navigation", { name: "Hauptnavigation" }).getByRole("link", { name: "Übersicht", exact: true }).click();
+  await expect(page).toHaveURL("http://127.0.0.1:3100/");
+  expect(await retainedNavigation!.evaluate((element) => element.isConnected)).toBe(true);
+  // Layout navigation survives: identity, user and a single navigation shell stay present.
+  expect(marker).toContain("Demo-Gast");
+  await expect(page.getByRole("banner")).toHaveCount(1);
+  await page.getByRole("link", { name: "Funktionsumfang und Grenzen" }).click();
+  await expect(page.getByRole("heading", { name: "Über diese Demo" })).toBeVisible();
+  await expect(page.getByRole("main")).toContainText("nicht für den produktiven Kanzleibetrieb");
+  await page.screenshot({ path: "test-results/demo-information.png" });
 });

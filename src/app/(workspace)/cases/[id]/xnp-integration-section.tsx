@@ -180,7 +180,7 @@ export function XnpIntegrationSection({
       <div className="p-3.5 rounded-lg bg-zinc-50 dark:bg-zinc-900/60 border border-zinc-200 dark:border-zinc-800 text-sm space-y-1.5">
         <div className="font-semibold text-zinc-900 dark:text-zinc-100 flex items-center justify-between">
           <span>Kompatibilitäts- und Übertragungshinweis</span>
-          <span className="font-sans text-xs text-zinc-500">Stand: BNotK Onlinehilfe Okt. 2025</span>
+          <span className="font-sans text-xs text-zinc-500">Keine bestätigte amtliche Schnittstellenprüfung</span>
         </div>
         <p className="text-zinc-600 dark:text-zinc-400 leading-relaxed">
           Die Exportpakete dienen der technischen Erprobung. Eine vollständige Prüfung gegen offizielle Schemas und ein erfolgreicher Import in XNP sind nicht bestätigt. Vor jeder Verwendung müssen Inhalt und Format fachlich geprüft werden. Es erfolgt keine Übertragung an Behörden.

@@ -340,7 +340,7 @@ export class MockLLMProvider implements LLMProvider {
       discrepancies,
       confidence: isLueckenhafterVertrag ? 0.62 : 0.94,
       isSyntheticSample: true,
-      disclaimer: "SYNTHETISCHER DEMO-DATENSATZ. Keine rechtliche Verbindlichkeit oder Gewähr nach § 17 BeurkG.",
+      disclaimer: "SYNTHETISCHER DEMO-DATENSATZ. Nicht von juristischen Fachpersonen geprüft. Nicht für echte Rechtsgeschäfte.",
     };
 
     return ExtractedLegalFieldsSchema.parse(result);

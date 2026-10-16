@@ -2,8 +2,6 @@ import Link from "next/link";
 import { connection } from "next/server";
 import { getAvailableAssignees } from "@/lib/services/case-service";
 import { CaseForm } from "./case-form";
-import { Navigation } from "@/components/navigation";
-import { testDatabaseConnection } from "@/lib/db";
 import { getTenantContextOrRedirect } from "@/lib/auth/tenant";
 
 export const instant = false;
@@ -19,11 +17,10 @@ export default async function NewCasePage({ searchParams }: NewCasePageProps) {
   const resolvedSearchParams = await searchParams;
 
   const tenant = await getTenantContextOrRedirect();
-  const [dbStatus, assignees] = await Promise.all([testDatabaseConnection(), getAvailableAssignees(tenant)]);
+  const assignees = await getAvailableAssignees(tenant);
 
   return (
-    <div className="app-shell min-h-screen bg-zinc-50 dark:bg-zinc-900 text-zinc-900 dark:text-zinc-100 flex flex-col font-sans">
-      <Navigation dbConnected={dbStatus.connected} tenant={tenant} />
+    <>
 
       <main className="flex-1 max-w-4xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-8 space-y-6">
         {/* Breadcrumb & Title */}
@@ -52,6 +49,6 @@ export default async function NewCasePage({ searchParams }: NewCasePageProps) {
         {/* Form */}
         <CaseForm initialPreset={resolvedSearchParams.preset} assignees={assignees} />
       </main>
-    </div>
+    </>
   );
 }

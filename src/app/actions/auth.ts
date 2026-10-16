@@ -3,6 +3,7 @@
 import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
 import { z } from "zod";
+import { PORTFOLIO_DEMO, isDemoLoginEnabled } from "@/lib/auth/demo";
 import { getPrismaClient } from "@/lib/db";
 import {
   createSessionToken,
@@ -71,6 +72,7 @@ export async function loginAction(
     }
 
     if (data.user) {
+      cookieStore.delete(SESSION_COOKIE_NAME);
       // Set active org if present
       const prisma = getPrismaClient();
       if (prisma) {
@@ -198,6 +200,7 @@ export async function logoutAction(): Promise<void> {
  */
 export async function switchOrganizationAction(orgId: string): Promise<{ success: boolean; message?: string }> {
   const session = await getAuthenticatedSession();
+  if (session?.demoOrganizationId && orgId !== session.demoOrganizationId) return { success: false, message: "Demo-Gäste können die Organisation nicht wechseln." };
   if (!session) {
     return { success: false, message: "Nicht authentifiziert." };
   }
@@ -246,4 +249,27 @@ export async function switchOrganizationAction(orgId: string): Promise<{ success
   });
 
   return { success: true };
+}
+
+/** Public entry point for the explicitly provisioned synthetic organization only. */
+export async function demoLoginAction(previous: AuthActionState): Promise<AuthActionState> {
+  void previous;
+  if (!isDemoLoginEnabled()) return { success: false, message: "Der Demo-Zugang ist nicht aktiviert." };
+  try {
+    const prisma = getPrismaClient();
+    if (!prisma) throw new Error("Demo database unavailable");
+    const user = await prisma.user.findUnique({ where: { id: PORTFOLIO_DEMO.userId }, include: { memberships: { include: { organization: true } } } });
+    const membership = user?.memberships[0];
+    if (!user || user.email !== PORTFOLIO_DEMO.email || user.memberships.length !== 1 || !membership || membership.organizationId !== PORTFOLIO_DEMO.organizationId || membership.role !== "CLERK" || membership.organization.slug !== PORTFOLIO_DEMO.organizationSlug) {
+      return { success: false, message: "Der Demo-Zugang ist noch nicht eingerichtet. Bitte versuchen Sie es später erneut." };
+    }
+    const token = createSessionToken({ userId: user.id, email: user.email, fullName: user.fullName, demoOrganizationId: PORTFOLIO_DEMO.organizationId }, 60 * 60 * 1000);
+    const store = await cookies();
+    const options = { httpOnly: true, secure: process.env.NODE_ENV === "production", sameSite: "lax" as const, path: "/", maxAge: 3600 };
+    store.set(SESSION_COOKIE_NAME, token, options);
+    store.set(ACTIVE_ORG_COOKIE_NAME, PORTFOLIO_DEMO.organizationId, options);
+  } catch {
+    return { success: false, message: "Der Demo-Zugang ist derzeit nicht verfügbar. Bitte versuchen Sie es später erneut." };
+  }
+  redirect("/cases");
 }

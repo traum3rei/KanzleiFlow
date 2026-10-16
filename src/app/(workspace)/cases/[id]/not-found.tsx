@@ -1,10 +1,8 @@
 import Link from "next/link";
-import { Navigation } from "@/components/navigation";
 
 export default function CaseNotFound() {
   return (
-    <div className="app-shell min-h-screen bg-white dark:bg-zinc-950 text-zinc-900 dark:text-zinc-100 flex flex-col font-sans tracking-tight">
-      <Navigation dbConnected={false} />
+    <>
 
       <main className="flex-1 max-w-2xl w-full mx-auto px-4 py-16 text-center space-y-4">
         <div className="inline-block px-2.5 py-1 rounded-lg bg-zinc-100 dark:bg-zinc-800 text-sm font-bold text-zinc-600 dark:text-zinc-400">
@@ -25,6 +23,6 @@ export default function CaseNotFound() {
           </Link>
         </div>
       </main>
-    </div>
+    </>
   );
 }

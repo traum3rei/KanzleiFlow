@@ -516,10 +516,10 @@ export function generatePreviewText(data: DocumentConfigurationData): string {
   const lines: string[] = [];
   lines.push("================================================================================");
   lines.push(`IMMOBILIENKAUFVERTRAG (ENTWURF) — ${data.caseNumber || "2026-UR-0142"}`);
-  lines.push("HINWEIS: DEMONSTRATIONS-MUSTER GEM. § 17 BEURKG. KEINE RECHTLICHE VERBINDLICHKEIT.");
+  lines.push("HINWEIS: TECHNISCHE DEMO. NICHT VON JURISTISCHEN FACHPERSONEN GEPRÜFT. NICHT FÜR ECHTE RECHTSGESCHÄFTE.");
   lines.push("================================================================================\n");
 
-  lines.push("§ 1 BETEILIGTE DER URKUNDE:");
+  lines.push("Abschnitt 1 BETEILIGTE DER URKUNDE:");
   data.parties.forEach((p, idx) => {
     lines.push(`  [${p.role}] #${idx + 1}: ${p.name}`);
     lines.push(`  Wohnanschrift: ${p.address}${p.city ? `, ${p.city}` : ""}`);
@@ -529,7 +529,7 @@ export function generatePreviewText(data: DocumentConfigurationData): string {
     lines.push("");
   });
 
-  lines.push("§ 2 KAUFGEGENSTAND:");
+  lines.push("Abschnitt 2 KAUFGEGENSTAND:");
   lines.push(`  Grundbuchbezirk: ${data.property.landRegistryDistrict || "— [fehlt] —"}`);
   lines.push(`  Grundbuchblatt: ${data.property.sheetNumber || "— [fehlt] —"}`);
   lines.push(`  Flurstück: ${data.property.parcelNumber || "— [fehlt] —"}`);
@@ -537,7 +537,7 @@ export function generatePreviewText(data: DocumentConfigurationData): string {
   if (data.property.plotAreaSqm) lines.push(`  Fläche: ${data.property.plotAreaSqm} m²`);
   lines.push("");
 
-  lines.push("§ 3 KAUFPREIS:");
+  lines.push("Abschnitt 3 KAUFPREIS:");
   lines.push(`  Betrag: ${data.purchasePrice.amount ? data.purchasePrice.amount.toLocaleString("de-DE") + " " + data.purchasePrice.currency : "— [fehlt] —"}`);
   lines.push(`  Fälligkeit: ${data.purchasePrice.paymentDueDate || "Nach Vormerkung und Lastenfreistellung"}`);
   lines.push(`  Abwicklung: ${data.purchasePrice.useEscrowAccount ? "Notaranderkonto" : "Direktzahlung"}`);

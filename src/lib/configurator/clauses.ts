@@ -12,9 +12,9 @@ export const REAL_ESTATE_TEMPLATE_VERSION = "1.0.0";
 export const REAL_ESTATE_CLAUSES: ClauseMetadata[] = [
   {
     code: "CLAUSE_PREAMBLE",
-    title: "§ 1 Verhandlung & Beteiligte",
+    title: "Abschnitt 1 Verhandlung & Beteiligte",
     category: "PARTIES",
-    description: "Feststellung der Identität und Erscheinen der Urkundsparteien durch den Notar.",
+    description: "Ungeprüftes Textbeispiel. Feststellung der Identität und Erscheinen der Urkundsparteien durch den Notar.",
     isDefault: true,
     sortOrder: 10,
     bodyTemplate:
@@ -23,9 +23,9 @@ export const REAL_ESTATE_CLAUSES: ClauseMetadata[] = [
   },
   {
     code: "CLAUSE_PROPERTY",
-    title: "§ 2 Kaufgegenstand & Grundbuchstand",
+    title: "Abschnitt 2 Kaufgegenstand & Grundbuchstand",
     category: "PROPERTY",
-    description: "Genaue Bezeichnung des Grundstücks bzw. Sondereigentums nach Grundbuch, Gemarkung und Flurstück.",
+    description: "Ungeprüftes Textbeispiel. Genaue Bezeichnung des Grundstücks bzw. Sondereigentums nach Grundbuch, Gemarkung und Flurstück.",
     isDefault: true,
     sortOrder: 20,
     requiredFields: ["property.landRegistryDistrict", "property.sheetNumber", "property.parcelNumber", "property.streetAddress"],
@@ -36,9 +36,9 @@ export const REAL_ESTATE_CLAUSES: ClauseMetadata[] = [
   },
   {
     code: "CLAUSE_PRICE_DUE",
-    title: "§ 3 Kaufpreis & Fälligkeitsvoraussetzungen",
+    title: "Abschnitt 3 Kaufpreis & Fälligkeitsvoraussetzungen",
     category: "PRICE",
-    description: "Festlegung des Kaufpreises, Fälligkeitsmitteilung des Notars und Direktzahlung an den Verkäufer.",
+    description: "Ungeprüftes Textbeispiel. Festlegung des Kaufpreises, Fälligkeitsmitteilung des Notars und Direktzahlung an den Verkäufer.",
     isDefault: true,
     sortOrder: 30,
     requiredFields: ["purchasePrice.amount", "purchasePrice.currency"],
@@ -50,23 +50,23 @@ export const REAL_ESTATE_CLAUSES: ClauseMetadata[] = [
   },
   {
     code: "CLAUSE_ESCROW_ACCOUNT",
-    title: "§ 3a Abwicklung über Notaranderkonto",
+    title: "Abschnitt 3a Abwicklung über Notaranderkonto",
     category: "PRICE",
-    description: "Besondere Abwicklung über ein Notaranderkonto gem. § 54a BeurkG bei berechtigtem Sicherungsinteresse.",
+    description: "Ungeprüftes Textbeispiel. Besondere Abwicklung über ein Notaranderkonto als illustratives Beispiel.",
     isDefault: false,
     sortOrder: 35,
     dependencies: ["CLAUSE_PRICE_DUE"],
     requiredFields: ["purchasePrice.escrowReason"],
     bodyTemplate:
       "Die Kaufpreiszahlung erfolgt abweichend über ein vom Notar einzurichtendes Notaranderkonto. " +
-      "Als berechtigtes Sicherungsinteresse gem. § 54a Abs. 2 Nr. 1 BeurkG wird festgehalten: {{purchasePrice.escrowReason}}. " +
+      "Als berechtigtes Sicherungsinteresse im illustrativen Demo-Text wird festgehalten: {{purchasePrice.escrowReason}}. " +
       "Der Notar wird angewiesen, den Hinterlegungsbetrag nach Vorliegen der vereinbarten Auszahlungsreife an den Verkäufer weiterzuleiten.",
   },
   {
     code: "CLAUSE_MORTGAGE_CLEARANCE",
-    title: "§ 4 Lastenfreistellung (Abt. II und III)",
+    title: "Abschnitt 4 Lastenfreistellung (Abt. II und III)",
     category: "CLEARANCE",
-    description: "Verpflichtung des Verkäufers zur lastenfreien Übergabe und Ablösung nicht übernommener Belastungen.",
+    description: "Ungeprüftes Textbeispiel. Verpflichtung des Verkäufers zur lastenfreien Übergabe und Ablösung nicht übernommener Belastungen.",
     isDefault: true,
     sortOrder: 40,
     dependencies: ["CLAUSE_PROPERTY"],
@@ -77,9 +77,9 @@ export const REAL_ESTATE_CLAUSES: ClauseMetadata[] = [
   },
   {
     code: "CLAUSE_POSSESSION",
-    title: "§ 5 Besitz-, Nutzen- und Lastenübergang",
+    title: "Abschnitt 5 Besitz-, Nutzen- und Lastenübergang",
     category: "POSSESSION",
-    description: "Zeitpunkt des Übergangs von Besitz, Nutzungen, Gefahren und öffentlichen Abgaben auf den Käufer.",
+    description: "Ungeprüftes Textbeispiel. Zeitpunkt des Übergangs von Besitz, Nutzungen, Gefahren und öffentlichen Abgaben auf den Käufer.",
     isDefault: true,
     sortOrder: 50,
     dependencies: ["CLAUSE_PRICE_DUE"],
@@ -90,9 +90,9 @@ export const REAL_ESTATE_CLAUSES: ClauseMetadata[] = [
   },
   {
     code: "CLAUSE_DEFECT_EXCLUSION",
-    title: "§ 6 Haftungsausschluss für Sach- und Rechtsmängel",
+    title: "Abschnitt 6 Haftungsausschluss für Sach- und Rechtsmängel",
     category: "WARRANTY",
-    description: "Umfassender Ausschluss der Sachmängelhaftung für Bestandsbauten (gekauft wie besichtigt, ohne Arglist).",
+    description: "Ungeprüftes Textbeispiel. Umfassender Ausschluss der Sachmängelhaftung für Bestandsbauten (gekauft wie besichtigt, ohne Arglist).",
     isDefault: true,
     sortOrder: 60,
     incompatibilities: ["CLAUSE_NEW_BUILD_WARRANTY"],
@@ -103,36 +103,36 @@ export const REAL_ESTATE_CLAUSES: ClauseMetadata[] = [
   },
   {
     code: "CLAUSE_NEW_BUILD_WARRANTY",
-    title: "§ 6b Gesetzliche Gewährleistung bei Neubau / Sanierung",
+    title: "Abschnitt 6b Gesetzliche Gewährleistung bei Neubau / Sanierung",
     category: "WARRANTY",
-    description: "Gewährleistung nach BGB (§ 634a BGB / 5 Jahre Verjährung) für neugebaute oder kernsanierte Objekte.",
+    description: "Ungeprüftes Textbeispiel. Ungeprüftes Textbeispiel zur Gewährleistung für neue oder sanierte Objekte; keine Aussage zu gesetzlichen Fristen.",
     isDefault: false,
     sortOrder: 65,
     incompatibilities: ["CLAUSE_DEFECT_EXCLUSION"],
     bodyTemplate:
-      "Für die neu errichteten bzw. sanierten Bauwerke übernimmt der Verkäufer die gesetzliche Gewährleistung nach Werkvertragsrecht (§ 634a BGB). " +
+      "Für die neu errichteten bzw. sanierten Bauwerke übernimmt der Verkäufer die gesetzliche Gewährleistung nach Werkvertragsrecht (ungeprüftes Textbeispiel). " +
       "Die Verjährungsfrist für Mängelansprüche beträgt fünf Jahre ab förmlicher Abnahme des Bauwerks. " +
       "Der Verkäufer tritt hiermit vorleistungshalber alle Gewährleistungsansprüche gegen beteiligte Handwerker und Sonderfachleute an den Käufer ab.",
   },
   {
     code: "CLAUSE_TENANCY",
-    title: "§ 7 Fortbestehende Mietverhältnisse",
+    title: "Abschnitt 7 Fortbestehende Mietverhältnisse",
     category: "TENANCY",
-    description: "Regelung bei vermieteten Objekten (§ 566 BGB Kauf bricht nicht Miete), Kautionsübertragung und Abrechnung.",
+    description: "Ungeprüftes Textbeispiel. Ungeprüftes Beispiel zu Mietverhältnissen, Kaution und Abrechnung.",
     isDefault: false,
     sortOrder: 70,
     dependencies: ["CLAUSE_POSSESSION"],
     requiredFields: ["terms.tenancyDetails"],
     bodyTemplate:
       "Das Vertragsobjekt ist ganz oder teilweise vermietet (Status: {{terms.tenancyStatusText}}). " +
-      "Der Käufer tritt mit dem Tag des Besitzübergangs kraft Gesetzes gem. § 566 BGB in die bestehenden Mietverhältnisse ein. " +
+      "Der Käufer tritt mit dem Tag des Besitzübergangs kraft Gesetzes im illustrativen Demo-Text in die bestehenden Mietverhältnisse ein. " +
       "Bestehende Mietkautionen werden zum Übergangsstichtag an den Käufer übertragen: {{terms.tenancyDetails}}.",
   },
   {
     code: "CLAUSE_FINANCING_CONTINGENCY",
-    title: "§ 8 Finanzierungsvorbehalt des Käufers",
+    title: "Abschnitt 8 Finanzierungsvorbehalt des Käufers",
     category: "FINANCING",
-    description: "Rücktrittsrecht des Käufers, falls keine verbindliche Kreditzusage bis zu einer vereinbarten Frist vorliegt.",
+    description: "Ungeprüftes Textbeispiel. Rücktrittsrecht des Käufers, falls keine verbindliche Kreditzusage bis zu einer vereinbarten Frist vorliegt.",
     isDefault: false,
     sortOrder: 80,
     dependencies: ["CLAUSE_PRICE_DUE"],
@@ -144,9 +144,9 @@ export const REAL_ESTATE_CLAUSES: ClauseMetadata[] = [
   },
   {
     code: "CLAUSE_FINANCING_COOPERATION",
-    title: "§ 8b Belastungsvollmacht zur Kaufpreisfinanzierung",
+    title: "Abschnitt 8b Belastungsvollmacht zur Kaufpreisfinanzierung",
     category: "FINANCING",
-    description: "Mitwirkung des Verkäufers bei der Bestellung von Grundpfandrechten vor Eigentumsumschreibung zugunsten der Käuferbank.",
+    description: "Ungeprüftes Textbeispiel. Mitwirkung des Verkäufers bei der Bestellung von Grundpfandrechten vor Eigentumsumschreibung zugunsten der Käuferbank.",
     isDefault: true,
     sortOrder: 85,
     dependencies: ["CLAUSE_PRICE_DUE"],
@@ -157,21 +157,21 @@ export const REAL_ESTATE_CLAUSES: ClauseMetadata[] = [
   },
   {
     code: "CLAUSE_ENFORCEMENT",
-    title: "§ 9 Vollstreckungsunterwerfung",
+    title: "Abschnitt 9 Vollstreckungsunterwerfung",
     category: "ENFORCEMENT",
-    description: "Sofortige Zwangsvollstreckung in das gesamte Vermögen bei Zahlungsverzug (§ 794 Abs. 1 Nr. 5 ZPO).",
+    description: "Ungeprüftes Textbeispiel. Ungeprüftes Textbeispiel einer Vollstreckungsklausel. Keine Bestätigung von Wirksamkeit oder Vollstreckbarkeit.",
     isDefault: true,
     sortOrder: 90,
     dependencies: ["CLAUSE_PRICE_DUE"],
     bodyTemplate:
       "Wegen aller in dieser Urkunde eingegangenen Zahlungsverpflichtungen unterwirft sich der Käufer der sofortigen Zwangsvollstreckung aus dieser Urkunde " +
-      "in sein gesamtes Vermögen (§ 794 Abs. 1 Nr. 5 ZPO). Der Notar wird ermächtigt, dem Verkäufer vollstreckbare Ausfertigung zu erteilen, sobald die Fälligkeit eingetreten ist.",
+      "in sein gesamtes Vermögen (ungeprüftes Textbeispiel). Der Notar wird ermächtigt, dem Verkäufer vollstreckbare Ausfertigung zu erteilen, sobald die Fälligkeit eingetreten ist.",
   },
   {
     code: "CLAUSE_COSTS_TAXES",
-    title: "§ 10 Kosten & Grunderwerbsteuer",
+    title: "Abschnitt 10 Kosten & Grunderwerbsteuer",
     category: "COSTS",
-    description: "Regelung der Notar- und Grundbuchkosten sowie der Grunderwerbsteuer (GNotKG, GrEStG).",
+    description: "Ungeprüftes Textbeispiel. Regelung der Notar- und Grundbuchkosten sowie der Grunderwerbsteuer als Textbeispiel.",
     isDefault: true,
     sortOrder: 100,
     bodyTemplate:
@@ -180,13 +180,13 @@ export const REAL_ESTATE_CLAUSES: ClauseMetadata[] = [
   },
   {
     code: "CLAUSE_POWER_OF_ATTORNEY",
-    title: "§ 11 Vollmachten zur Grundbuchabwicklung",
+    title: "Abschnitt 11 Vollmachten zur Grundbuchabwicklung",
     category: "MISC",
-    description: "Umfassende Vollmacht für die Notariatsmitarbeiter zur Abgabe aller verfahrensrechtlichen Grundbucherklärungen.",
+    description: "Ungeprüftes Textbeispiel. Umfassende Vollmacht für die Notariatsmitarbeiter zur Abgabe aller verfahrensrechtlichen Grundbucherklärungen.",
     isDefault: true,
     sortOrder: 110,
     bodyTemplate:
-      "Die Beteiligten bevollmächtigen die Notarangestellten des amtierenden Notars, unter Befreiung von den Beschränkungen des § 181 BGB, " +
+      "Die Beteiligten bevollmächtigen die Notarangestellten des amtierenden Notars, im illustrativen Demo-Text, " +
       "alle zur Durchführung dieses Vertrages etwa noch erforderlichen Erklärungen, Ergänzungen und Bewilligungen vor dem Notar abzugeben, " +
       "insbesondere die Eintragung der Auflassung und Grundbuchberichtigungen zu bewilligen und zu beantragen.",
   },

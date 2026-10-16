@@ -8,7 +8,6 @@ import {
   getCaseStatusCounts,
   getAvailableAssignees,
 } from "@/lib/services/case-service";
-import { testDatabaseConnection } from "@/lib/db";
 import {
   CaseStatus,
   CaseStatusEnum,
@@ -18,7 +17,6 @@ import {
   matterTypeLabels,
 } from "@/lib/validations/case";
 import { StatusBadge, MatterTypeBadge } from "@/components/status-badge";
-import { Navigation } from "@/components/navigation";
 import { DeleteCaseButton } from "@/components/delete-case-button";
 
 export const instant = false;
@@ -53,7 +51,7 @@ export default async function CasesPage({ searchParams }: CasesPageProps) {
 
   const tenant = await getTenantContextOrRedirect();
 
-  const [cases, totalCount, statusCounts, availableAssignees, dbStatus] = await Promise.all([
+  const [cases, totalCount, statusCounts, availableAssignees] = await Promise.all([
     getCases(tenant, {
       status: statusFilter,
       search: searchQuery,
@@ -70,7 +68,6 @@ export default async function CasesPage({ searchParams }: CasesPageProps) {
     }),
     getCaseStatusCounts(tenant),
     getAvailableAssignees(tenant),
-    testDatabaseConnection(),
   ]);
 
   const totalPages = Math.max(1, Math.ceil(totalCount / pageSize));
@@ -155,8 +152,7 @@ export default async function CasesPage({ searchParams }: CasesPageProps) {
   };
 
   return (
-    <div className="app-shell min-h-screen bg-white dark:bg-zinc-950 text-zinc-900 dark:text-zinc-100 flex flex-col font-sans tracking-tight">
-      <Navigation dbConnected={dbStatus.connected} tenant={tenant} />
+    <>
 
       <main className="flex-1 max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-8 space-y-5">
         {/* Page Header */}
@@ -166,7 +162,7 @@ export default async function CasesPage({ searchParams }: CasesPageProps) {
               Aktenverwaltung
             </h1>
             <p className="text-sm text-zinc-500 dark:text-zinc-400 mt-0.5">
-              Urkundenrolle & Vorgänge im {tenant.organizationName}
+              Demo-Aktenliste & Vorgänge im {tenant.organizationName}
             </p>
           </div>
           <Link
@@ -364,7 +360,7 @@ export default async function CasesPage({ searchParams }: CasesPageProps) {
                       key={c.id}
                       className="hover:bg-zinc-50 dark:hover:bg-zinc-900/60 transition-colors"
                     >
-                      {/* Urkundenrolle / Aktenzeichen */}
+                      {/* Demo-Aktenliste / Aktenzeichen */}
                       <td className="px-4 py-3 align-middle whitespace-nowrap">
                         <div className="flex flex-col gap-0.5">
                           <span className="font-bold text-zinc-900 dark:text-zinc-100">
@@ -551,6 +547,6 @@ export default async function CasesPage({ searchParams }: CasesPageProps) {
           </div>
         </div>
       </main>
-    </div>
+    </>
   );
 }

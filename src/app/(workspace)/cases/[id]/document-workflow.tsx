@@ -24,6 +24,7 @@ import { ExtractedLegalFields } from "@/lib/ai/schema";
 import { DocumentWorkflowStatus } from "@/generated/prisma/enums";
 
 interface DocumentWorkflowProps {
+  extractionMode: "mock" | "external" | "unconfigured";
   caseId: string;
   caseNumber: string;
   initialDocuments: DocumentWithExtraction[];
@@ -31,6 +32,7 @@ interface DocumentWorkflowProps {
 }
 
 export function DocumentWorkflow({
+  extractionMode,
   caseId,
   caseNumber,
   initialDocuments,
@@ -431,8 +433,9 @@ export function DocumentWorkflow({
             </h2>
           </div>
           <p className="text-sm text-zinc-500 dark:text-zinc-400 mt-1">
-            Dokument hochladen → Daten extrahieren → Angaben prüfen und freigeben → Word-Entwurf erstellen
+            Dokument hochladen → Angaben korrigieren → Für die Demo bestätigen → Word-Textbeispiel erstellen
           </p>
+          <p className="text-xs text-zinc-500">{extractionMode === "mock" ? "Extraktion: simulierte Beispieldaten (Mock), kein Live-KI-Aufruf." : extractionMode === "external" ? "Extraktion: externer KI-Anbieter konfiguriert. Keine juristische Prüfung der Ergebnisse." : "Extraktion: kein Anbieter konfiguriert. Die Funktion ist derzeit nicht verfügbar."}</p>
         </div>
 
         {/* Action Buttons: File Upload + Quick Sample Demos */}
@@ -1191,7 +1194,7 @@ export function DocumentWorkflow({
                       value={reviewNotes}
                       disabled={isPending || activeDoc.workflowStatus !== "NEEDS_REVIEW"}
                       onChange={(e) => setReviewNotes(e.target.value)}
-                      placeholder="z.B.: Grundbuchblatt im Amtsgericht abgefragt und bestätigt. Steuer-ID der Käuferseite telefonisch verifiziert."
+                      placeholder="z. B.: Fiktive Angaben für den Demoablauf korrigiert. Keine externe oder juristische Prüfung."
                       className="w-full px-3 py-2 rounded-lg border border-zinc-300 dark:border-zinc-700 bg-white dark:bg-zinc-950 text-sm font-sans disabled:opacity-75"
                     />
                   </div>
@@ -1214,7 +1217,7 @@ export function DocumentWorkflow({
                         disabled={isPending}
                         className="px-3.5 py-1.5 rounded-lg bg-blue-800 hover:bg-blue-900 dark:bg-blue-600 dark:text-white dark:hover:bg-blue-500 text-white text-sm font-sans font-medium  transition-colors duration-150 flex items-center gap-1.5"
                       >
-                        <span>Geprüfte Daten freigeben</span>
+                        <span>Daten freigeben (Demo)</span>
                       </button>
                     </div>
                   ) : (
@@ -1245,7 +1248,7 @@ export function DocumentWorkflow({
                   <div className="flex items-center gap-2">
                     <span className="text-zinc-700 dark:text-zinc-300 font-bold text-sm">[freigegeben]</span>
                     <h3 className="text-sm font-bold text-zinc-900 dark:text-white ">
-                      Extraktionsdaten menschlich geprüft & freigegeben
+                      Daten im Demoablauf bestätigt · Keine juristische Prüfung
                     </h3>
                   </div>
                   <p className="text-sm text-zinc-600 dark:text-zinc-400">
@@ -1433,7 +1436,7 @@ export function DocumentWorkflow({
                           <div className="mt-3 pt-3 border-t border-zinc-200 dark:border-zinc-800 space-y-2 animate-in fade-in duration-150">
                             <div className="flex flex-wrap items-center justify-between text-xs text-zinc-500 dark:text-zinc-400 gap-2 font-sans">
                               <span>
-                                Datenschnappschuss • Vorbereitungsvermerk nach § 17 BeurkG
+                                Gespeicherter Datenstand · Ungeprüfter Demo-Entwurf
                               </span>
                               <span className="text-zinc-400">ID: {draft.id}</span>
                             </div>
@@ -1481,7 +1484,7 @@ export function DocumentWorkflow({
               <ul className="list-disc list-inside space-y-0.5 text-xs text-zinc-600 dark:text-zinc-400">
                 <li>Die physische Datei wird vom Server gelöscht.</li>
                 <li>Zugehörige KI-Extraktionsdaten werden unwiderruflich bereinigt.</li>
-                <li>Ein revisionssicherer Audit-Eintrag wird protokolliert.</li>
+                <li>Die Löschung wird als technisches Ereignis protokolliert.</li>
               </ul>
             </div>
 

@@ -250,10 +250,7 @@ export default function WordAddinTaskpanePage() {
     }
   };
 
-  const handleFillDemo = () => {
-    setLoginEmail("j.weiss@notariat-weiss-partner.de");
-    setLoginPassword("notar-geheim-2026");
-  };
+
 
   // 6. Insertion & Audit logging
   const logAudit = async (caseId: string, fieldKey: string, fieldLabel: string) => {
@@ -353,7 +350,7 @@ export default function WordAddinTaskpanePage() {
       <header className="p-3 bg-white dark:bg-zinc-900 border-b border-zinc-200 dark:border-zinc-800 flex items-center justify-between sticky top-0 z-20">
         <div className="flex items-center gap-2 min-w-0">
           <div className="w-6 h-6 rounded bg-zinc-900 dark:bg-zinc-100 text-white dark:text-zinc-950 flex items-center justify-center font-bold text-sm shrink-0">
-            §
+            KF
           </div>
           <div className="min-w-0">
             <span className="font-bold text-zinc-900 dark:text-white block leading-tight truncate">
@@ -447,20 +444,7 @@ export default function WordAddinTaskpanePage() {
               </p>
             </div>
 
-            {/* Quick Demo Fill Helper */}
-            <div className="p-2.5 rounded bg-zinc-100 dark:bg-zinc-800/80 border border-zinc-300 dark:border-zinc-700 flex items-center justify-between">
-              <div>
-                <span className="font-bold text-xs block">Demo-Schnellanmeldung:</span>
-                <span className="text-xs text-zinc-500">Dr. Johannes Weiss (Notar)</span>
-              </div>
-              <button
-                type="button"
-                onClick={handleFillDemo}
-                className="px-2 py-0.5 rounded bg-zinc-900 text-white dark:bg-zinc-100 dark:text-zinc-950 text-xs "
-              >
-                Ausfüllen
-              </button>
-            </div>
+            <p className="text-xs text-zinc-500">Technische Word-Demo. Der Web-Demo-Zugang ist in der Hauptanwendung verfügbar; eine echte Word-Installation wurde nicht bestätigt.</p>
 
             {loginError && (
               <div className="p-2.5 rounded bg-rose-50 dark:bg-rose-950/40 border border-rose-300 dark:border-rose-800 text-rose-800 dark:text-rose-200 text-xs">

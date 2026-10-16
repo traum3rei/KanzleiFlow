@@ -20,7 +20,7 @@ function escapeXml(str: string | number | null | undefined): string {
 
 /**
  * Builds the official Urkundenverzeichnis (UVZ) XML import structure
- * conforming to § 8 DONot and Bundesnotarkammer UVZ import specifications.
+ * as an unverified technical UVZ prototype.
  */
 export function buildUvzXml(
   tenant: TenantContext,
@@ -35,7 +35,7 @@ export function buildUvzXml(
   const xml = `<?xml version="1.0" encoding="UTF-8"?>
 <!-- 
   KanzleiFlow Notariats-Portal
-  Urkundenverzeichnis (UVZ) Importdatensatz (§ 8 DONot)
+  Illustrativer UVZ-Datensatz, nicht amtlich geprüft
   Erzeugt am: ${escapeXml(generatedAt)}
 -->
 <uvz:urkundenverzeichnisEintrag

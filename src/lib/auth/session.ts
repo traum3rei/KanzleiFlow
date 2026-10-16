@@ -1,9 +1,11 @@
+import { isDemoLoginEnabled } from "./demo";
 import crypto from "crypto";
 import { cookies } from "next/headers";
 import { createServerClient } from "@supabase/ssr";
 
 export interface SessionPayload {
   userId: string;
+  demoOrganizationId?: string;
   email: string;
   fullName: string;
   issuedAt: number;
@@ -74,9 +76,11 @@ export function verifySessionToken(token: string): SessionPayload | null {
   try {
     const payloadJson = Buffer.from(payloadBase64, "base64url").toString("utf-8");
     const payload = JSON.parse(payloadJson) as SessionPayload;
+    if (payload?.demoOrganizationId && !isDemoLoginEnabled()) return null;
 
     // Validate identity and timestamps before using the signed payload.
     if (!payload || typeof payload.userId !== "string" || !payload.userId ||
+        (payload.demoOrganizationId !== undefined && typeof payload.demoOrganizationId !== "string") ||
         typeof payload.email !== "string" || !payload.email || typeof payload.fullName !== "string" ||
         !Number.isFinite(payload.issuedAt) || !Number.isFinite(payload.expiresAt) ||
         payload.issuedAt > Date.now() || payload.expiresAt <= payload.issuedAt ||
@@ -129,6 +133,13 @@ export async function getSupabaseServerClient() {
  */
 export async function getAuthenticatedSession(): Promise<SessionPayload | null> {
   const cookieStore = await cookies();
+
+  // An explicitly restricted demo session takes precedence over unrelated provider cookies.
+  const demoCookie = cookieStore.get(SESSION_COOKIE_NAME)?.value;
+  if (demoCookie) {
+    const demo = verifySessionToken(demoCookie);
+    if (demo?.demoOrganizationId) return demo;
+  }
 
   // 1. Try Supabase Auth if configured
   const supabase = await getSupabaseServerClient();

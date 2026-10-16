@@ -24,8 +24,8 @@ import { DocumentConfigurationData } from "./types";
 import { REAL_ESTATE_CLAUSES, REAL_ESTATE_TEMPLATE_VERSION } from "./clauses";
 
 const DISCLAIMER_TEXT =
-  "DEMONSTRATIONS-ENTWURF — NICHT ZUR BEURKUNDUNG GEEIGNET (§ 17 BeurkG). " +
-  "KanzleiFlow ist ein juristisches Assistenzsystem. Dieser Entwurf ersetzt keine notarielle Prüfung.";
+  "DEMONSTRATIONS-ENTWURF — NICHT FÜR ECHTE RECHTSGESCHÄFTE. " +
+  "KanzleiFlow ist eine technische Portfolio-Demo. Die Inhalte wurden nicht von juristischen Fachpersonen geprüft.";
 
 const BORDER_COLOR = "CBD5E1";
 const TABLE_BORDER = {
@@ -118,7 +118,7 @@ export async function generateConfiguredDocx(
                 new Paragraph({
                   children: [
                     new TextRun({
-                      text: "HINWEIS GEMÄSS § 17 BEURKG (DEMONSTRATIONS-MUSTER):",
+                      text: "UNGEPRÜFTES DEMONSTRATIONS-MUSTER:",
                       bold: true,
                       size: 16,
                       color: "B91C1C",
@@ -187,7 +187,7 @@ export async function generateConfiguredDocx(
       spacing: { before: 200, after: 120 },
       children: [
         new TextRun({
-          text: "§ 1 Beteiligte der Urkunde",
+          text: "Abschnitt 1 Beteiligte der Urkunde",
           bold: true,
           size: 24,
           font: "Geist Mono",
@@ -332,7 +332,7 @@ export async function generateConfiguredDocx(
       spacing: { before: 200, after: 120 },
       children: [
         new TextRun({
-          text: "§ 2 Kaufgegenstand & Grundbuchbeschrieb",
+          text: "Abschnitt 2 Kaufgegenstand & Grundbuchbeschrieb",
           bold: true,
           size: 24,
           font: "Geist Mono",
@@ -407,7 +407,7 @@ export async function generateConfiguredDocx(
       spacing: { before: 200, after: 120 },
       children: [
         new TextRun({
-          text: "§ 3 Kaufpreis & Zahlungsmodalitäten",
+          text: "Abschnitt 3 Kaufpreis & Zahlungsmodalitäten",
           bold: true,
           size: 24,
           font: "Geist Mono",
@@ -421,7 +421,7 @@ export async function generateConfiguredDocx(
   const priceRows = [
     ["Gesamtkaufpreis:", formatCurrency(price.amount, price.currency)],
     ["Fälligkeitstermin:", formatDateGerman(price.paymentDueDate)],
-    ["Abwicklungsart:", price.useEscrowAccount ? "Notaranderkonto gem. § 54a BeurkG" : "Direktzahlung an Verkäufer"],
+    ["Abwicklungsart:", price.useEscrowAccount ? "Notaranderkonto im illustrativen Demo-Text" : "Direktzahlung an Verkäufer"],
     ["Fälligkeitsvoraussetzungen:", price.paymentConditionsDescription || "Standardmäßige Fälligkeitsmitteilung durch den Notar."],
     [
       "Zahlungsempfänger / IBAN:",
@@ -474,7 +474,7 @@ export async function generateConfiguredDocx(
       spacing: { before: 200, after: 120 },
       children: [
         new TextRun({
-          text: "§ 4 Vereinbarte Vertragsbestimmungen",
+          text: "Abschnitt 4 Vereinbarte Vertragsbestimmungen",
           bold: true,
           size: 24,
           font: "Geist Mono",
@@ -503,7 +503,7 @@ export async function generateConfiguredDocx(
       .replace(/{{property\.streetAddress}}/g, prop.streetAddress || "[Adresse]")
       .replace(/{{purchasePrice\.amountFormatted}}/g, formatCurrency(price.amount, price.currency))
       .replace(/{{purchasePrice\.currency}}/g, price.currency)
-      .replace(/{{purchasePrice\.escrowReason}}/g, price.escrowReason || "[Berechtigtes Sicherungsinteresse gem. § 54a BeurkG]")
+      .replace(/{{purchasePrice\.escrowReason}}/g, price.escrowReason || "[Demo-Begründung]")
       .replace(/{{purchasePrice\.financingAmountFormatted}}/g, formatCurrency(price.financingAmount))
       .replace(/{{terms\.possessionTransferDateFormatted}}/g, formatDateGerman(data.terms?.possessionTransferDate))
       .replace(/{{terms\.tenancyStatusText}}/g, data.terms?.tenancyStatus === "rented" ? "Vollvermietet" : data.terms?.tenancyStatus === "partially_rented" ? "Teilweise vermietet" : "Bezugsfrei")

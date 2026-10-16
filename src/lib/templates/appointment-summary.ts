@@ -61,7 +61,7 @@ export function renderAppointmentSummaryTemplate(
    Name:      ${p.name}
    Anschrift: ${p.address || "[Wohnsitz / Geschäftsanschrift fehlt]"}
    Geburtsdatum: ${p.birthDate ? formatDate(p.birthDate) : "[fehlt]"}
-   Steuer-ID: ${p.taxId || "[nachzureichen nach § 139b AO]"}`;
+   Steuer-ID: ${p.taxId || "[nachzureichen im illustrativen Demo-Text]"}`;
         })
         .join("\n\n")
     : "   [Keine Vertragsparteien erfasst]";
@@ -87,18 +87,17 @@ SACHBEARBEITUNG:    ${context.assignedClerk || "Stefanie Bauer"}
 ERSTELLT AM:        ${generatedAt} Uhr
 
 --------------------------------------------------------------------------------
-WICHTIGER HINWEIS / COMPLIANCE-DISCLAIMER:
-${data.disclaimer}
-Dieser Entwurf wurde auf Basis geprüfter und menschlich freigegebener Daten
-(Human-in-the-Loop) deterministisch generiert. Er stellt keine rechtsverbindliche
-Urkunde im Sinne des § 17 BeurkG dar.
+TECHNISCHE DEMO — KEINE JURISTISCHE PRÜFUNG:
+SYNTHETISCHER DEMO-DATENSATZ. Nicht von juristischen Fachpersonen geprüft. Nicht für echte Rechtsgeschäfte.
+Dieser Demo-Entwurf wurde technisch aus im Demoablauf bestätigten Daten erzeugt.
+Er wurde nicht von juristischen Fachpersonen geprüft und ist nicht für echte Rechtsgeschäfte bestimmt.
 --------------------------------------------------------------------------------
 
-${missingWarnings}§ 1 VERTRAGSBETEILIGTE
+${missingWarnings}Abschnitt 1 VERTRAGSBETEILIGTE
 --------------------------------------------------------------------------------
 ${partiesList}
 
-§ 2 VERTRAGSGEGENSTAND & GRUNDBUCHSTAND
+Abschnitt 2 VERTRAGSGEGENSTAND & GRUNDBUCHSTAND
 --------------------------------------------------------------------------------
 Gemarkung:          ${data.propertyDetails?.landRegistryDistrict || "[fehlt]"}
 Grundbuchblatt:     ${data.propertyDetails?.sheetNumber || "[Abt. I noch beizuziehen]"}
@@ -106,7 +105,7 @@ Flurstück:          ${data.propertyDetails?.parcelNumber || "[Flurbezeichnung o
 Fläche:             ${data.propertyDetails?.areaSqm ? `${data.propertyDetails.areaSqm} m²` : "[Fläche unbestimmt]"}
 Nutzungsart:        ${data.propertyDetails?.economicUse || "Wohnbaufläche"}
 
-§ 3 GEGENLEISTUNG & FINANZIERUNG
+Abschnitt 3 GEGENLEISTUNG & FINANZIERUNG
 --------------------------------------------------------------------------------
 Kaufpreis:          ${formatCurrency(data.financials?.purchasePrice ?? null, data.financials?.currency)}
 Fälligkeit:         ${data.financials?.paymentDueDate ? formatDate(data.financials.paymentDueDate) : "14 Tage nach Vorliegen aller Fälligkeitsvoraussetzungen"}
@@ -115,19 +114,17 @@ Zahlweg:            Überweisung auf das Notaranderkonto / Direktzahlung an Verk
 Eingetragene Lasten (Abt. II & III):
 ${encumbrances}
 
-§ 4 NOTARIELLE WEGFÜHRUNG & VOLLZUGSHINWEISE
+Abschnitt 4 NOTARIELLE WEGFÜHRUNG & VOLLZUGSHINWEISE
 --------------------------------------------------------------------------------
 1. Identitätsnachweis:
-   Alle Erschienenen haben sich durch gültige amtliche Lichtbildausweise auszuweisen
-   (Geldwäschegesetz GwG § 11 ff.).
+   Illustratives Datenfeld, keine echte Identitäts- oder Geldwäscheprüfung.
 2. Vorlage Steuer-Identifikationsnummern:
-   Verpflichtend zur Meldung gem. Grunderwerbsteuergesetz (GrEStG) an das zuständige
-   Finanzamt für Verkehrsteuern.
+   Fiktives Datenfeld zur Demonstration. Keine steuerrechtliche Prüfung oder Behördenmeldung.
 3. Vormerkung & Lastenfreistellung:
    Zur Sicherung des Käufers ist die Eintragung einer Eigentumsvormerkung (Auflassungsvormerkung)
    im Grundbuch vorzusehen.
 
-§ 5 PRÜF- UND FREIGABEVERMERK
+Abschnitt 5 PRÜF- UND FREIGABEVERMERK
 --------------------------------------------------------------------------------
 Die vorstehenden Daten wurden mit den eingereichten Unterlagen abgeglichen und
 zur Vorbereitung des Notartermins durch die Sachbearbeitung freigegeben.

@@ -177,7 +177,7 @@ export async function generateDocxDraft(
                   spacing: { after: 60 },
                   children: [
                     new TextRun({
-                      text: "WICHTIGER HINWEIS / COMPLIANCE-DISCLAIMER (§ 17 BeurkG):",
+                      text: "TECHNISCHE DEMO — KEINE JURISTISCHE PRÜFUNG:",
                       bold: true,
                       size: 17,
                       color: "92400E",
@@ -188,14 +188,14 @@ export async function generateDocxDraft(
                 new Paragraph({
                   children: [
                     new TextRun({
-                      text: data.disclaimer || "SYNTHETISCHER DEMO-DATENSATZ. Keine Gewähr nach § 17 BeurkG.",
+                      text: "SYNTHETISCHER DEMO-DATENSATZ. Nicht von juristischen Fachpersonen geprüft. Nicht für echte Rechtsgeschäfte.",
                       size: 16,
                       bold: true,
                       color: "78350F",
                       font: "Arial",
                     }),
                     new TextRun({
-                      text: " — Dieser Vorbereitungsvermerk wurde aus verifizierten und menschlich freigegebenen Daten (Human-in-the-Loop) deterministisch erzeugt. Er stellt keine rechtsverbindliche notarielle Urkunde dar. Das Zustandekommen eines wirksamen Rechtsgeschäfts setzt die persönliche Beurkundung nach § 13 ff. BeurkG voraus.",
+                      text: " — Technisch erzeugtes Textbeispiel. Weder Daten noch Inhalte wurden juristisch geprüft. Nicht zur rechtlichen Verwendung vorgesehen.",
                       size: 16,
                       color: "92400E",
                       font: "Arial",
@@ -430,14 +430,14 @@ export async function generateDocxDraft(
     );
   }
 
-  // 6. § 1 Vertragsparteien & Beteiligte
+  // 6. Abschnitt 1 Vertragsparteien & Beteiligte
   children.push(
     new Paragraph({
       heading: HeadingLevel.HEADING_2,
       spacing: { before: 180, after: 100 },
       children: [
         new TextRun({
-          text: "§ 1 VERTRAGSVERTEILTE & BETEILIGTE",
+          text: "Abschnitt 1 VERTRAGSBETEILIGTE & BETEILIGTE",
           bold: true,
           size: 22,
           color: "1E293B",
@@ -449,7 +449,7 @@ export async function generateDocxDraft(
       spacing: { after: 120 },
       children: [
         new TextRun({
-          text: "Identitätsfeststellung nach GwG § 11 ff. sowie Legitimation gem. § 10 BeurkG:",
+          text: "Identitätsfeststellung nach ungeprüftes Beispiel sowie Legitimation im illustrativen Demo-Text:",
           italics: true,
           size: 16,
           color: "475569",
@@ -595,14 +595,14 @@ export async function generateDocxDraft(
     new Paragraph({ spacing: { after: 200 }, children: [] })
   );
 
-  // 7. § 2 Vertragsgegenstand & Grundbuchstand
+  // 7. Abschnitt 2 Vertragsgegenstand & Grundbuchstand
   children.push(
     new Paragraph({
       heading: HeadingLevel.HEADING_2,
       spacing: { before: 180, after: 100 },
       children: [
         new TextRun({
-          text: "§ 2 VERTRAGSGEGENSTAND & GRUNDBUCHSTAND",
+          text: "Abschnitt 2 VERTRAGSGEGENSTAND & GRUNDBUCHSTAND",
           bold: true,
           size: 22,
           color: "1E293B",
@@ -735,7 +735,7 @@ export async function generateDocxDraft(
     new Paragraph({ spacing: { after: 200 }, children: [] })
   );
 
-  // 8. § 3 Gegenleistung & Finanzierungskonditionen
+  // 8. Abschnitt 3 Gegenleistung & Finanzierungskonditionen
   const encumbrancesList = data.financials?.existingEncumbrances?.length
     ? data.financials.existingEncumbrances.join("; ")
     : "Keine eingetragenen Belastungen oder Vorlasten vermerkt.";
@@ -746,7 +746,7 @@ export async function generateDocxDraft(
       spacing: { before: 180, after: 100 },
       children: [
         new TextRun({
-          text: "§ 3 GEGENLEISTUNG & FINANZIERUNGSKONDITIONEN",
+          text: "Abschnitt 3 GEGENLEISTUNG & FINANZIERUNGSKONDITIONEN",
           bold: true,
           size: 22,
           color: "1E293B",
@@ -822,7 +822,7 @@ export async function generateDocxDraft(
                 new Paragraph({
                   children: [
                     new TextRun({
-                      text: "Überweisung auf Notaranderkonto / Direktzahlung an Verkäufer nach Fälligkeitsmitteilung (§ 54a BeurkG)",
+                      text: "Überweisung auf Notaranderkonto / Direktzahlung an Verkäufer nach Fälligkeitsmitteilung (ungeprüftes Textbeispiel)",
                       size: 16,
                       font: "Arial",
                     }),
@@ -860,14 +860,14 @@ export async function generateDocxDraft(
     new Paragraph({ spacing: { after: 200 }, children: [] })
   );
 
-  // 9. § 4 Notarielle Vollzugshinweise & Gesetzliche Pflichtprüfungen
+  // 9. Abschnitt 4 Notarielle Vollzugshinweise & Gesetzliche Pflichtprüfungen
   children.push(
     new Paragraph({
       heading: HeadingLevel.HEADING_2,
       spacing: { before: 180, after: 100 },
       children: [
         new TextRun({
-          text: "§ 4 NOTARIELLE WEGFÜHRUNG & VOLLZUGSHINWEISE",
+          text: "Abschnitt 4 NOTARIELLE WEGFÜHRUNG & VOLLZUGSHINWEISE",
           bold: true,
           size: 22,
           color: "1E293B",
@@ -880,7 +880,7 @@ export async function generateDocxDraft(
       children: [
         new TextRun({ text: "1. Identitätsnachweis: ", bold: true, size: 16, font: "Arial" }),
         new TextRun({
-          text: "Alle Beteiligten haben sich bei der Beurkundung durch gültige amtliche Lichtbildausweise auszuweisen (GwG § 11 ff.).",
+          text: "Alle Beteiligten haben sich bei der Beurkundung durch gültige amtliche Lichtbildausweise auszuweisen (ungeprüftes Beispiel).",
           size: 16,
           font: "Arial",
         }),
@@ -891,7 +891,7 @@ export async function generateDocxDraft(
       children: [
         new TextRun({ text: "2. Steuer-Identifikationsnummer: ", bold: true, size: 16, font: "Arial" }),
         new TextRun({
-          text: "Pflichtangabe zur Veräußerungsanzeige gem. § 18 GrEStG an das zuständige Finanzamt für Verkehrsteuern.",
+          text: "Illustratives Datenfeld einer Veräußerungsanzeige. Keine steuerrechtliche Prüfung oder Übermittlung.",
           size: 16,
           font: "Arial",
         }),
@@ -921,14 +921,14 @@ export async function generateDocxDraft(
     })
   );
 
-  // 10. § 5 Freigabevermerk & Beurkundungsreife
+  // 10. Abschnitt 5 Freigabevermerk & Beurkundungsreife
   children.push(
     new Paragraph({
       heading: HeadingLevel.HEADING_2,
       spacing: { before: 180, after: 100 },
       children: [
         new TextRun({
-          text: "§ 5 PRÜF- UND FREIGABEVERMERK",
+          text: "Abschnitt 5 PRÜF- UND FREIGABEVERMERK",
           bold: true,
           size: 22,
           color: "1E293B",

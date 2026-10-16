@@ -4,7 +4,6 @@ import { getTenantContextOrRedirect } from "@/lib/auth/tenant";
 import { getDashboardStats } from "@/lib/services/case-service";
 import { testDatabaseConnection } from "@/lib/db";
 import { StatusBadge, MatterTypeBadge } from "@/components/status-badge";
-import { Navigation } from "@/components/navigation";
 
 export const instant = false;
 
@@ -16,8 +15,7 @@ export default async function DashboardPage() {
   const dbStatus = await testDatabaseConnection();
 
   return (
-    <div className="app-shell min-h-screen bg-white dark:bg-zinc-950 text-zinc-900 dark:text-zinc-100 flex flex-col font-sans tracking-tight">
-      <Navigation dbConnected={dbStatus.connected} tenant={tenant} />
+    <>
 
       <main className="flex-1 max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-8 space-y-6">
         {/* Connection Notice (if not connected) */}
@@ -315,6 +313,6 @@ export default async function DashboardPage() {
         </div>
 
       </main>
-    </div>
+    </>
   );
 }

@@ -63,7 +63,7 @@ export function buildXnotarGrundbuchXml(
   </xnotar:kopf>
 
   <xnotar:grundbuchantrag>
-    <xnotar:verfahrensgegenstand>Eigentumsumschreibung und Eintragungsantrag nach § 13 GBO</xnotar:verfahrensgegenstand>
+    <xnotar:verfahrensgegenstand>Illustratives Beispiel: Eigentumsumschreibung und Eintragungsantrag</xnotar:verfahrensgegenstand>
     <xnotar:geschaeftswert waehrung="${escapeXml(fin.currency || "EUR")}">${escapeXml(fin.dealValue ?? 0)}</xnotar:geschaeftswert>
     
     <xnotar:liegenschaft>

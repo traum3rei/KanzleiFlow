@@ -134,7 +134,7 @@ export function DeleteCaseButton({
                 <li>Alle hochgeladenen Dokumente werden physisch vom Speicher gelöscht.</li>
                 <li>Zugehörige KI-Extraktionsergebnisse werden unwiderruflich bereinigt.</li>
                 <li>Alle generierten Entwurfsversionen (.docx & .txt) werden entfernt.</li>
-                <li>Ein revisionssicherer Audit-Eintrag (CASE_DELETED) wird protokolliert.</li>
+                <li>Die Löschung wird als technisches Ereignis protokolliert.</li>
               </ul>
             </div>
 

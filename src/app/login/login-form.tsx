@@ -1,7 +1,7 @@
 "use client";
 
 import { useActionState, useState } from "react";
-import { loginAction, AuthActionState } from "@/app/actions/auth";
+import { loginAction, demoLoginAction, AuthActionState } from "@/app/actions/auth";
 
 const initialState: AuthActionState = {
   success: false,
@@ -11,39 +11,21 @@ interface LoginFormProps {
   allowDemoLogin?: boolean;
 }
 
-export function LoginForm({ allowDemoLogin = true }: LoginFormProps) {
+export function LoginForm({ allowDemoLogin = false }: LoginFormProps) {
   const [state, formAction, isPending] = useActionState(loginAction, initialState);
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
 
-  const fillDemoCredentials = () => {
-    setEmail("j.weiss@notariat-weiss-partner.de");
-    setPassword("notar-geheim-2026");
-  };
+  const [demoState, demoAction, demoPending] = useActionState(demoLoginAction, initialState);
 
   return (
-    <form action={formAction} className="space-y-4 font-sans">
-      {/* Dev helper button (visible only in dev/demo mode) */}
-      {allowDemoLogin && (
-        <div className="p-2.5 rounded-lg bg-zinc-100 dark:bg-zinc-800 border border-zinc-300 dark:border-zinc-700 flex items-center justify-between text-sm">
-          <div>
-            <span className="font-bold text-zinc-900 dark:text-zinc-100 block text-xs">
-              Demo-Schnellanmeldung:
-            </span>
-            <span className="text-xs text-zinc-500 dark:text-zinc-400">
-              Dr. Johannes Weiss (Notar)
-            </span>
-          </div>
-          <button
-            type="button"
-            onClick={fillDemoCredentials}
-            className="px-2 py-0.5 rounded bg-zinc-900 text-white dark:bg-zinc-100 dark:text-zinc-950 font-sans text-xs  transition-colors duration-150"
-          >
-            Ausfüllen
-          </button>
-        </div>
-      )}
-
+    <div className="space-y-5">
+      {allowDemoLogin && <form action={demoAction} className="space-y-2">
+        <button disabled={demoPending} type="submit" className="w-full px-3 py-3 rounded-lg bg-blue-800 text-white dark:bg-blue-600 font-semibold disabled:opacity-50">{demoPending ? "Demo wird geöffnet …" : "Demo-Zugang verwenden"}</button>
+        <p className="text-xs text-zinc-500">Ohne Passwort · Gemeinsame, ausschließlich fiktive Demo-Daten</p>
+        {demoState.message && <p role="alert" className="text-sm text-rose-700 dark:text-rose-300">{demoState.message}</p>}
+      </form>}
+      <form action={formAction} className="space-y-4 font-sans">
       {/* Error Banner */}
       {!state.success && state.message && (
         <div className="p-2.5 rounded-lg bg-rose-50 dark:bg-rose-950/40 border border-rose-300 dark:border-rose-800 text-sm text-rose-800 dark:text-rose-200">
@@ -116,5 +98,6 @@ export function LoginForm({ allowDemoLogin = true }: LoginFormProps) {
         )}
       </button>
     </form>
+    </div>
   );
 }

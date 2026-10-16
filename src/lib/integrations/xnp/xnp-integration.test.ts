@@ -80,7 +80,7 @@ describe("KanzleiFlow — BNotK XNP / XNotar Integration", () => {
     const completeGbReport = validateCaseForXnpExport(completeCase as unknown as CaseItem, "XNOTAR_GRUNDBUCH_XML");
     expect(completeGbReport.isValid).toBe(true);
     expect(completeGbReport.issues.filter((i) => i.severity === "ERROR").length).toBe(0);
-    expect(completeGbReport.isAuthoritative).toBe(true);
+    expect(completeGbReport.isAuthoritative).toBe(false);
   });
 
   it("produces deterministic ZIP archives with standard PKZIP structure", () => {
@@ -149,7 +149,7 @@ describe("KanzleiFlow — BNotK XNP / XNotar Integration", () => {
       expect(exportRecord.exportType).toBe("XNOTAR_GRUNDBUCH_XML");
       expect(exportRecord.fileSize).toBeGreaterThan(0);
       expect(exportRecord.storagePath).toBeDefined();
-      expect(exportRecord.isAuthoritative).toBe(true);
+      expect(exportRecord.isAuthoritative).toBe(false);
 
       // Verify physical package exists on disk
       const zipBuffer = await getExportPackage(exportRecord.storagePath);

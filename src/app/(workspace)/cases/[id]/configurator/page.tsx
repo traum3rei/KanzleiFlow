@@ -3,8 +3,6 @@ import { notFound } from "next/navigation";
 import { connection } from "next/server";
 import { getTenantContextOrRedirect } from "@/lib/auth/tenant";
 import { getCaseById } from "@/lib/services/case-service";
-import { testDatabaseConnection } from "@/lib/db";
-import { Navigation } from "@/components/navigation";
 import {
   listConfigurationsForCase,
   createConfiguration,
@@ -30,7 +28,6 @@ export default async function ConfiguratorPage({
   const { configId, prefill } = await searchParams;
 
   const tenant = await getTenantContextOrRedirect();
-  const dbStatus = await testDatabaseConnection();
 
   const caseItem = await getCaseById(tenant, id);
   if (!caseItem) {
@@ -82,8 +79,7 @@ export default async function ConfiguratorPage({
   }));
 
   return (
-    <div className="app-shell min-h-screen bg-zinc-50 dark:bg-zinc-900 text-zinc-900 dark:text-zinc-100 flex flex-col font-sans tracking-tight">
-      <Navigation dbConnected={dbStatus.connected} tenant={tenant} />
+    <>
 
       <main className="flex-1 max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-6 space-y-6">
         {/* Breadcrumb Navigation */}
@@ -134,6 +130,6 @@ export default async function ConfiguratorPage({
           hasApprovedExtraction={hasApprovedExtraction}
         />
       </main>
-    </div>
+    </>
   );
 }

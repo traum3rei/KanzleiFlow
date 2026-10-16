@@ -1,3 +1,5 @@
+import { cache } from "react";
+import { PORTFOLIO_DEMO, isDemoLoginEnabled } from "./demo";
 /**
  * ============================================================================
  * KanzleiFlow Multi-Tenant Isolation & Authorization Layer
@@ -113,6 +115,9 @@ export async function resolveTenantContextFromUser(
   requestedOrgId?: string | null
 ): Promise<TenantContext> {
   const prisma = getPrismaClient();
+  if (session.demoOrganizationId && (!isDemoLoginEnabled() || session.demoOrganizationId !== PORTFOLIO_DEMO.organizationId || session.userId !== PORTFOLIO_DEMO.userId || (requestedOrgId && requestedOrgId !== PORTFOLIO_DEMO.organizationId))) {
+    throw new AuthenticationRequiredError("Demo-Zugriff verweigert.");
+  }
 
   if (prisma) {
     // 1. Fetch user and their organization memberships from PostgreSQL by userId
@@ -152,6 +157,10 @@ export async function resolveTenantContextFromUser(
       );
     }
 
+    if (session.demoOrganizationId) {
+      memberships = memberships.filter((membership) => membership.organizationId === PORTFOLIO_DEMO.organizationId && membership.role === "CLERK");
+      if (memberships.length !== 1) throw new AuthenticationRequiredError("Demo-Mitgliedschaft nicht verfügbar.");
+    }
     // 2. Select active organization: requestedOrgId (if member) or default to first membership
     let selectedMembership = memberships[0];
     if (requestedOrgId) {
@@ -178,10 +187,12 @@ export async function resolveTenantContextFromUser(
       userEmail: session.email,
       userName: session.fullName,
       userRole: selectedMembership.role as "NOTARY" | "CANDIDATE_NOTARY" | "CLERK" | "ADMIN" | "VIEWER",
-      isDemoMode: false,
+      isDemoMode: Boolean(session.demoOrganizationId),
       availableOrganizations,
     };
   }
+
+  if (session.demoOrganizationId) throw new AuthenticationRequiredError("Demo-Datenbank nicht verfügbar.");
 
   // Strictly disallow fallback in production environments
   if (isProductionEnvironment()) {
@@ -212,7 +223,7 @@ export async function resolveTenantContextFromUser(
  * - In production: strictly requires a verified authenticated session. Throws AuthenticationRequiredError if missing.
  * - In development: uses session if present; if unauthenticated, falls back to DEMO_NOTARIAT_CONTEXT unless disabled.
  */
-export async function getTenantContext(): Promise<TenantContext> {
+export const getTenantContext = cache(async (): Promise<TenantContext> => {
   const isProd = isProductionEnvironment();
 
   let session: SessionPayload | null = null;
@@ -246,7 +257,7 @@ export async function getTenantContext(): Promise<TenantContext> {
   }
 
   return DEMO_NOTARIAT_CONTEXT;
-}
+});
 
 /**
  * Route protection helper: gets TenantContext or redirects to /login if unauthenticated.

@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
 import "./globals.css";
+import { DemoNotice } from "@/components/demo-notice";
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -13,8 +14,8 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "KanzleiFlow — Notarielle Vorgangsbearbeitung",
-  description: "Moderne, KI-unterstützte Aktenverwaltung und Dokumentenworkflow für Notariate",
+  title: "KanzleiFlow — Technische Demo",
+  description: "Portfolio-Demo für Akten- und Dokumentenabläufe. Nicht juristisch geprüft und nicht für reale Mandantendaten vorgesehen.",
 };
 
 
@@ -24,7 +25,7 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
       lang="de"
       className={`${geistSans.variable} ${geistMono.variable} h-full antialiased`}
     >
-      <body className="min-h-full flex flex-col">{children}</body>
+      <body className="min-h-full flex flex-col"><DemoNotice />{children}</body>
     </html>
   );
 }

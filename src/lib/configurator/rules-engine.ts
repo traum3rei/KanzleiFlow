@@ -182,10 +182,10 @@ export function evaluateConfiguration(
     errors.push({
       step: 3,
       field: "purchasePrice.escrowReason",
-      message: "Bei Abwicklung über Notaranderkonto ist ein berechtigtes Sicherungsinteresse gem. § 54a BeurkG erforderlich.",
+      message: "Bei Abwicklung über Notaranderkonto ist ein berechtigtes Sicherungsinteresse im Demo-Regelsatz erforderlich.",
       severity: "error",
     });
-    missingRequiredFields.push("Anderkonto-Begründung (§ 54a BeurkG)");
+    missingRequiredFields.push("Anderkonto-Begründung (Demo-Regel)");
   }
 
   if (price.financingRequired && (!price.financingAmount || price.financingAmount <= 0)) {
@@ -256,7 +256,7 @@ export function evaluateConfiguration(
             const pair: IncompatiblePair = {
               clauseA: code,
               clauseB: incompCode,
-              reason: `Klausel „${clauseMeta.title}“ schließt die Klausel „${incompTitle}“ rechtlich aus.`,
+              reason: `Klausel „${clauseMeta.title}“ schließt die Klausel „${incompTitle}“ im Demo-Regelsatz aus.`,
             };
             incompatibleClausePairs.push(pair);
             errors.push({
@@ -318,7 +318,7 @@ export function evaluateConfiguration(
       warnings.push({
         step: 4,
         clauseCode: code,
-        message: "Neubau-Gewährleistung (§ 634a BGB) für eine Bestandsimmobilie gewählt. Bitte Objektart prüfen.",
+        message: "Neubau-Gewährleistung (Textbeispiel) für eine Bestandsimmobilie gewählt. Bitte Objektart prüfen.",
         severity: "warning",
       });
     }

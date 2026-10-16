@@ -311,7 +311,7 @@ describe("Milestone: DOCX Generation and Document Lifecycle", () => {
   });
 
   // 7. Missing fields and disclaimer inclusion
-  it("clearly marks missing fields and includes statutory disclaimer in generated DOCX", async () => {
+  it("clearly marks missing fields and includes explicit unreviewed demo disclaimer in generated DOCX", async () => {
     const dataWithGaps: ExtractedLegalFields = {
       ...syntheticSampleData,
       propertyDetails: {
@@ -344,9 +344,9 @@ describe("Milestone: DOCX Generation and Document Lifecycle", () => {
     const zip = await JSZip.loadAsync(buffer);
     const docXml = await zip.file("word/document.xml")?.async("text");
 
-    // Verify statutory disclaimer
-    expect(docXml).toContain("WICHTIGER HINWEIS / COMPLIANCE-DISCLAIMER");
-    expect(docXml).toContain("§ 17 BeurkG");
+    // Verify standalone demo notice in the downloaded document.
+    expect(docXml).toContain("TECHNISCHE DEMO — KEINE JURISTISCHE PRÜFUNG");
+    expect(docXml).toContain("Nicht von juristischen Fachpersonen geprüft");
 
     // Verify missing field alerts in the DOCX
     expect(docXml).toContain("KLÄRUNGSBEDARF");

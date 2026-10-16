@@ -5,9 +5,8 @@ import { getTenantContextOrRedirect } from "@/lib/auth/tenant";
 import { getCaseById } from "@/lib/services/case-service";
 import { getDocumentsForCase } from "@/lib/services/document-service";
 import { getDraftsForCase } from "@/lib/services/draft-service";
-import { getPrismaClient, testDatabaseConnection } from "@/lib/db";
+import { getPrismaClient } from "@/lib/db";
 import { StatusBadge, MatterTypeBadge } from "@/components/status-badge";
-import { Navigation } from "@/components/navigation";
 import { DeleteCaseButton } from "@/components/delete-case-button";
 import { DocumentWorkflow } from "./document-workflow";
 import { XnpIntegrationSection } from "./xnp-integration-section";
@@ -25,10 +24,7 @@ export default async function CaseDetailPage({ params }: CaseDetailPageProps) {
   await connection();
   const { id } = await params;
   const tenant = await getTenantContextOrRedirect();
-  const [dbStatus, caseItem] = await Promise.all([
-    testDatabaseConnection(),
-    getCaseById(tenant, id),
-  ]);
+  const caseItem = await getCaseById(tenant, id);
 
   if (!caseItem) {
     notFound();
@@ -57,8 +53,7 @@ export default async function CaseDetailPage({ params }: CaseDetailPageProps) {
     : [];
 
   return (
-    <div className="app-shell min-h-screen bg-white dark:bg-zinc-950 text-zinc-900 dark:text-zinc-100 flex flex-col font-sans tracking-tight">
-      <Navigation dbConnected={dbStatus.connected} tenant={tenant} />
+    <>
 
       <main className="flex-1 max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-8 space-y-6">
         {/* Breadcrumb & Navigation Bar */}
@@ -207,7 +202,7 @@ export default async function CaseDetailPage({ params }: CaseDetailPageProps) {
                     Beteiligte & Parteien ({caseItem.parties.length})
                   </h2>
                   <p className="text-sm text-zinc-500 dark:text-zinc-400 mt-0.5">
-                    Identitätsfeststellung & Legitimation nach § 10 BeurkG
+                    Illustrative Beteiligtenangaben · Keine Identitätsprüfung
                   </p>
                 </div>
               </div>
@@ -295,7 +290,7 @@ export default async function CaseDetailPage({ params }: CaseDetailPageProps) {
                       Grundbuch- & Liegenschaftsdaten
                     </h2>
                     <p className="text-sm text-zinc-500 dark:text-zinc-400 mt-0.5">
-                      Katasteramtliche Bezeichnung nach § 28 GBO
+                      Grundstücksangaben für das Datenmodell der Demo
                     </p>
                   </div>
                   <span className="px-2 py-0.5 rounded bg-emerald-50 dark:bg-emerald-950/60 text-emerald-700 dark:text-emerald-400 text-sm font-semibold border border-emerald-200 dark:border-emerald-800">
@@ -439,6 +434,7 @@ export default async function CaseDetailPage({ params }: CaseDetailPageProps) {
             {/* Document Processing & AI Extraction Workflow */}
             <section id="dokumente" aria-label="Dokumente und Entwürfe" className="scroll-mt-24">
             <DocumentWorkflow
+              extractionMode={process.env.LLM_PROVIDER?.toLowerCase() === "mock" ? "mock" : process.env.GEMINI_API_KEY || process.env.OPENAI_API_KEY || process.env.ANTHROPIC_API_KEY ? "external" : "unconfigured"}
               caseId={caseItem.id}
               caseNumber={caseItem.caseNumber}
               initialDocuments={documents}
@@ -473,7 +469,7 @@ export default async function CaseDetailPage({ params }: CaseDetailPageProps) {
                     1
                   </span>
                   <div>
-                    <p className="font-bold text-zinc-900 dark:text-white">Urkundenrolle angelegt</p>
+                    <p className="font-bold text-zinc-900 dark:text-white">Demo-Aktenliste angelegt</p>
                     <p className="text-zinc-400 text-xs mt-0.5">Stammdaten & Aktenzeichen erfasst</p>
                   </div>
                 </div>
@@ -509,7 +505,7 @@ export default async function CaseDetailPage({ params }: CaseDetailPageProps) {
                     3
                   </span>
                   <div>
-                    <p className="font-bold text-zinc-900 dark:text-white">Beurkundungsreife erteilt</p>
+                    <p className="font-bold text-zinc-900 dark:text-white">Demo-Status: vorbereitet</p>
                     <p className="text-zinc-400 text-xs mt-0.5">Vertragsentwurf freigegeben</p>
                   </div>
                 </div>
@@ -526,8 +522,8 @@ export default async function CaseDetailPage({ params }: CaseDetailPageProps) {
                     4
                   </span>
                   <div>
-                    <p className="font-bold text-zinc-900 dark:text-white">Urkunde unterzeichnet</p>
-                    <p className="text-zinc-400 text-xs mt-0.5">Beurkundung nach § 13 BeurkG</p>
+                    <p className="font-bold text-zinc-900 dark:text-white">Beispielstatus: unterzeichnet</p>
+                    <p className="text-zinc-400 text-xs mt-0.5">Illustrativer Verfahrensschritt</p>
                   </div>
                 </div>
 
@@ -544,7 +540,7 @@ export default async function CaseDetailPage({ params }: CaseDetailPageProps) {
                   </span>
                   <div>
                     <p className="font-bold text-zinc-900 dark:text-white">Vollzug & Archivierung</p>
-                    <p className="text-zinc-400 text-xs mt-0.5">Grundbuchumschreibung erfolgt</p>
+                    <p className="text-zinc-400 text-xs mt-0.5">Illustrativer Abschlussstatus</p>
                   </div>
                 </div>
               </div>
@@ -599,6 +595,6 @@ export default async function CaseDetailPage({ params }: CaseDetailPageProps) {
           </div>
         </div>
       </main>
-    </div>
+    </>
   );
 }

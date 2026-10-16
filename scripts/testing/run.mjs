@@ -10,6 +10,7 @@ const root = process.cwd();
 await mkdir(path.join(root, '.test-data'), { recursive: true });
 const directory = await mkdtemp(path.join(root, '.test-data/run-'));
 const env = { ...process.env };
+const mode = process.argv[2] || "unit";
 // Prevent Next.js from loading any configured development or external service credentials.
 for (const file of ['.env', '.env.local', '.env.development', '.env.development.local', '.env.production', '.env.production.local', '.env.test', '.env.test.local']) {
   const content = await readFile(file, 'utf8').catch(() => '');
@@ -19,6 +20,7 @@ for (const file of ['.env', '.env.local', '.env.development', '.env.development.
   }
 }
 Object.assign(env, {
+  ENABLE_DEMO_LOGIN: "true",
   DATABASE_URL: TEST_DATABASE_URL, DIRECT_URL: TEST_DATABASE_URL,
   APP_ENV: 'development', VERCEL_ENV: 'development', REQUIRE_AUTH: 'false', ALLOW_DEMO_AUTH: 'true', KANZLEIFLOW_TEST_RUN: 'isolated',
   SESSION_SECRET: 'isolated-test-session-secret-not-for-production',
@@ -33,6 +35,10 @@ const postgres = new EmbeddedPostgres({
   postgresFlags: ['-h', '127.0.0.1', '-k', directory, '-c', 'max_connections=100'],
   onLog: () => {}, onError: (message) => console.error(String(message)),
 });
+if (mode === "serve") Object.assign(env, { REQUIRE_AUTH: "true", ALLOW_DEMO_AUTH: "false" });
+if (mode === "e2e-production") {
+  Object.assign(env, { NODE_ENV: "production", APP_ENV: "production", REQUIRE_AUTH: "true", ALLOW_DEMO_AUTH: "false", KANZLEIFLOW_PRODUCTION_E2E: "true" });
+}
 let child;
 process.once("SIGINT", () => child?.kill("SIGINT"));
 process.once("SIGTERM", () => child?.kill("SIGTERM"));
@@ -64,10 +70,15 @@ try {
   } finally { await db.end(); }
   console.log('Isolated PostgreSQL ready at 127.0.0.1:55439 (synthetic data only).');
   await run(['--import', 'tsx', 'scripts/testing/seed.ts']);
-  const mode = process.argv[2] || 'unit';
+
   if (mode === 'schema') console.log('Test migrations match the current Prisma schema.');
-  else if (mode === 'build') await run(['node_modules/next/dist/bin/next', 'build']);
+  else if (mode === 'build') { await run(['node_modules/prisma/build/index.js', 'generate']); await run(['node_modules/next/dist/bin/next', 'build']); }
   else if (mode === 'serve') await run(['node_modules/next/dist/bin/next', 'dev', '--webpack', '--hostname', '127.0.0.1', '--port', '3100']);
+  else if (mode === 'e2e-production') {
+    await run(['node_modules/prisma/build/index.js', 'generate']);
+    await run(['node_modules/next/dist/bin/next', 'build']);
+    await run(['node_modules/@playwright/test/cli.js', 'test', '--grep', 'public portfolio demo']);
+  }
   else if (mode === 'e2e') await run(['node_modules/@playwright/test/cli.js', 'test', ...process.argv.slice(3)]);
   else await run(['node_modules/vitest/vitest.mjs', 'run', ...process.argv.slice(3)]);
 } catch (error) {

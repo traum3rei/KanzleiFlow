@@ -74,14 +74,14 @@ export function Navigation({ dbConnected, tenant }: NavigationProps) {
           <div className="flex items-center space-x-3 sm:space-x-6 min-w-0">
             <Link href="/" prefetch={true} className="flex items-center space-x-2.5 group shrink-0">
               <div className="w-9 h-9 rounded-lg bg-blue-800 dark:bg-blue-600 flex items-center justify-center text-white dark:text-white font-bold text-sm">
-                §
+                KF
               </div>
               <div className="min-w-0">
                 <span className="text-sm font-bold tracking-tight text-zinc-900 dark:text-white block leading-tight">
                   KanzleiFlow
                 </span>
-                <span className="hidden sm:block text-xs text-zinc-500 dark:text-zinc-400 font-sans truncate max-w-[200px]">
-                  {tenant?.organizationName || "Notariat Schwabing"}
+                <span className="block text-xs text-zinc-500 dark:text-zinc-400 font-sans truncate max-w-[200px]">
+                  Demo-Version<span className="hidden sm:inline"> · {tenant?.organizationName || "Fiktive Organisation"}</span>
                 </span>
               </div>
             </Link>
@@ -119,7 +119,7 @@ export function Navigation({ dbConnected, tenant }: NavigationProps) {
               }`}
               title={
                 dbConnected
-                  ? "Verbunden Verbindung aktiv"
+                  ? "Verbindung zur Demo-Datenbank aktiv"
                   : "Vorschau-Modus"
               }
             >
@@ -132,7 +132,7 @@ export function Navigation({ dbConnected, tenant }: NavigationProps) {
                 {dbConnected ? "Verbunden" : "Vorschau"}
               </span>
               <span className="sm:hidden">
-                {dbConnected ? "Live" : "Demo"}
+                {dbConnected ? "DB" : "Demo"}
               </span>
             </div>
 

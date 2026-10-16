@@ -1,3 +1,4 @@
+import { isDemoLoginEnabled } from "./demo";
 /**
  * Edge-compatible session verification and environment helpers.
  * Implemented with Web Standards (Web Crypto API, TextEncoder, atob)
@@ -6,6 +7,7 @@
 
 export interface SessionPayload {
   userId: string;
+  demoOrganizationId?: string;
   email: string;
   fullName: string;
   issuedAt: number;
@@ -83,8 +85,10 @@ export async function verifySessionTokenEdge(token: string): Promise<SessionPayl
 
     const payloadJson = new TextDecoder().decode(base64UrlToUint8Array(payloadBase64));
     const payload = JSON.parse(payloadJson) as SessionPayload;
+    if (payload?.demoOrganizationId && !isDemoLoginEnabled()) return null;
 
     if (!payload || typeof payload.userId !== "string" || !payload.userId ||
+        (payload.demoOrganizationId !== undefined && typeof payload.demoOrganizationId !== "string") ||
         typeof payload.email !== "string" || !payload.email || typeof payload.fullName !== "string" ||
         !Number.isFinite(payload.issuedAt) || !Number.isFinite(payload.expiresAt) ||
         payload.issuedAt > Date.now() || payload.expiresAt <= payload.issuedAt || payload.expiresAt <= Date.now()) {

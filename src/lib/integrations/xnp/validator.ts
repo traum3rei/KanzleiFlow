@@ -96,7 +96,7 @@ export function validateCaseForXnpExport(
       issues.push({
         fieldKey: "landRegistryDistrict",
         path: "propertyDetails.landRegistryDistrict",
-        message: "Gemarkung ist für Grundbuchanträge zwingend erforderlich (§ 28 GBO).",
+        message: "Gemarkung ist für Grundbuchanträge zwingend erforderlich (Demo-Pflichtfeld).",
         severity: "ERROR",
       });
       missingRequiredFields.push("Gemarkung (landRegistryDistrict)");
@@ -154,7 +154,7 @@ export function validateCaseForXnpExport(
       issues.push({
         fieldKey: "dealValue",
         path: "financials.dealValue",
-        message: "Kaufpreis / Gegenleistung ist für die Veräußerungsanzeige (§ 18 GrEStG) zwingend erforderlich.",
+        message: "Kaufpreis / Gegenleistung ist für die Veräußerungsanzeige (Demo-Pflichtfeld) zwingend erforderlich.",
         severity: "ERROR",
       });
       missingRequiredFields.push("Kaufpreis (dealValue)");
@@ -181,9 +181,9 @@ export function validateCaseForXnpExport(
     issues,
     missingRequiredFields,
     verifiedDataCount: verifiedCount,
-    isAuthoritative: isValid && caseData.status === "READY_FOR_NOTARIZATION",
+    isAuthoritative: false,
     summary: isValid
-      ? `Alle Pflichtfelder für ${exportType} sind vollständig vorhanden.`
+      ? `Die technischen Demo-Pflichtfelder für ${exportType} sind vorhanden. Keine juristische oder amtliche Prüfung.`
       : `Validierung fehlgeschlagen: ${errors.length} Pflichtangabe(n) fehlen für ${exportType}.`,
   };
 }

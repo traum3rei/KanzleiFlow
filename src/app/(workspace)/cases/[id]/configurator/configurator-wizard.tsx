@@ -739,15 +739,15 @@ export function ConfiguratorWizard({
                     }
                     className="rounded"
                   />
-                  <span>Abwicklung über Notaranderkonto gem. § 54a BeurkG</span>
+                  <span>Notaranderkonto als Demo-Abwicklungsart</span>
                 </label>
 
                 {formData.purchasePrice.useEscrowAccount && (
                   <div className="space-y-1 pl-6 pt-1">
                     <label className="text-xs font-bold text-zinc-600 dark:text-zinc-400">
-                      Berechtigtes Sicherungsinteresse gem. § 54a Abs. 2 BeurkG *
+                      Begründung der Demo-Abwicklungsart *
                     </label>
-                    <input aria-label="Berechtigtes Sicherungsinteresse gem. § 54a Abs. 2 BeurkG *"
+                    <input aria-label="Begründung der Demo-Abwicklungsart *"
                       type="text"
                       value={formData.purchasePrice.escrowReason || ""}
                       onChange={(e) =>
@@ -999,7 +999,7 @@ export function ConfiguratorWizard({
               <div>
                 <h3 className="text-sm font-semibold">Schritt 5: Prüfung & Validierungsübersicht</h3>
                 <p className="text-sm text-zinc-500 mt-0.5">
-                  Technische Vollständigkeitsprüfung. Vorlage und Klauseln müssen notariell geprüft werden.
+                  Technische Demo-Prüfung. Vorlage, Klauseln und Regeln wurden nicht von juristischen Fachpersonen geprüft.
                 </p>
               </div>
               <span
@@ -1111,7 +1111,7 @@ export function ConfiguratorWizard({
               <div>
                 <h3 className="text-sm font-semibold">Schritt 6: Entwurfsgenerierung & DOCX-Download</h3>
                 <p className="text-sm text-zinc-500 mt-0.5">
-                  Erstellen Sie einen Word-Entwurf mit dauerhaft gespeicherten Vertragsdaten. Eine notarielle Prüfung ist erforderlich.
+                  Erstellen Sie ein Word-Textbeispiel mit gespeichertem Datenstand. Der Inhalt wurde nicht juristisch geprüft und ist nicht für echte Rechtsgeschäfte vorgesehen.
                 </p>
               </div>
 
