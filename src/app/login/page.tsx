@@ -32,9 +32,6 @@ export default async function LoginPage() {
           <p className="text-xs text-zinc-400">
             Technische Demo · Keine juristische Prüfung.
           </p>
-          <p className="text-xs text-zinc-500 font-sans">
-            Zugriff nur für berechtigte Mitarbeitende
-          </p>
         </div>
       </main>
     </div>

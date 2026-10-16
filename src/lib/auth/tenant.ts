@@ -1,5 +1,5 @@
 import { cache } from "react";
-import { PORTFOLIO_DEMO, isDemoLoginEnabled } from "./demo";
+import { PORTFOLIO_DEMOS, isDemoLoginEnabled } from "./demo";
 /**
  * ============================================================================
  * KanzleiFlow Multi-Tenant Isolation & Authorization Layer
@@ -115,7 +115,8 @@ export async function resolveTenantContextFromUser(
   requestedOrgId?: string | null
 ): Promise<TenantContext> {
   const prisma = getPrismaClient();
-  if (session.demoOrganizationId && (!isDemoLoginEnabled() || session.demoOrganizationId !== PORTFOLIO_DEMO.organizationId || session.userId !== PORTFOLIO_DEMO.userId || (requestedOrgId && requestedOrgId !== PORTFOLIO_DEMO.organizationId))) {
+  const demo = PORTFOLIO_DEMOS.find((entry) => entry.organizationId === session.demoOrganizationId && entry.userId === session.userId && entry.email === session.email);
+  if (session.demoOrganizationId && (!isDemoLoginEnabled() || !demo || (requestedOrgId && requestedOrgId !== demo.organizationId))) {
     throw new AuthenticationRequiredError("Demo-Zugriff verweigert.");
   }
 
@@ -158,7 +159,7 @@ export async function resolveTenantContextFromUser(
     }
 
     if (session.demoOrganizationId) {
-      memberships = memberships.filter((membership) => membership.organizationId === PORTFOLIO_DEMO.organizationId && membership.role === "CLERK");
+      memberships = memberships.filter((membership) => membership.organizationId === session.demoOrganizationId && membership.role === "CLERK");
       if (memberships.length !== 1) throw new AuthenticationRequiredError("Demo-Mitgliedschaft nicht verfügbar.");
     }
     // 2. Select active organization: requestedOrgId (if member) or default to first membership

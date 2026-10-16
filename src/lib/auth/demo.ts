@@ -8,6 +8,20 @@ export const PORTFOLIO_DEMO = {
   fullName: "Demo-Gast",
 } as const;
 
+export const PORTFOLIO_DEMOS = [
+  PORTFOLIO_DEMO,
+  {
+    organizationId: "org_portfolio_demo_b",
+    organizationSlug: "portfolio-demo-b",
+    organizationName: "Fiktives Demo-Notariat B",
+    userId: "usr_portfolio_demo_b",
+    email: "portfolio-demo-b@example.test",
+    fullName: "Demo-Gast B",
+  },
+] as const;
+
 export function isDemoLoginEnabled(): boolean {
-  return process.env.ENABLE_DEMO_LOGIN === "true";
+  // This repository is a public portfolio demo on localhost and Vercel.
+  // Operators can explicitly disable the synthetic guest entry point.
+  return process.env.ENABLE_DEMO_LOGIN !== "false";
 }

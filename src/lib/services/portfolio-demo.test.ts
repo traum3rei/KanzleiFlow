@@ -1,7 +1,7 @@
 import { describe, expect, it, vi, afterEach } from "vitest";
 import { getPrismaClient } from "@/lib/db";
 import { provisionPortfolioDemo } from "./portfolio-demo";
-import { PORTFOLIO_DEMO } from "@/lib/auth/demo";
+import { PORTFOLIO_DEMO, PORTFOLIO_DEMOS } from "@/lib/auth/demo";
 import { resolveTenantContextFromUser } from "@/lib/auth/tenant";
 
 afterEach(() => vi.unstubAllEnvs());
@@ -22,6 +22,19 @@ describe("dedicated demo tenant", () => {
       expect((await prisma.organizationMember.findFirst({ where }))!.role).toBe("ADMIN");
     } finally {
       await prisma.organizationMember.updateMany({ where, data: { role: "CLERK" } });
+    }
+  });
+  it("keeps both public demo identities and cases isolated", async () => {
+    const prisma = getPrismaClient()!;
+    await Promise.all([provisionPortfolioDemo(prisma), provisionPortfolioDemo(prisma)]);
+    for (const demo of PORTFOLIO_DEMOS) {
+      const session = { userId: demo.userId, email: demo.email, fullName: demo.fullName, demoOrganizationId: demo.organizationId, issuedAt: Date.now(), expiresAt: Date.now() + 10000 };
+      const tenant = await resolveTenantContextFromUser(session, demo.organizationId);
+      expect(tenant.organizationId).toBe(demo.organizationId);
+      expect(tenant.availableOrganizations).toHaveLength(1);
+      const other = PORTFOLIO_DEMOS.find((entry) => entry.organizationId !== demo.organizationId)!;
+      await expect(resolveTenantContextFromUser(session, other.organizationId)).rejects.toThrow(/Demo-Zugriff/);
+      expect(await prisma.case.count({ where: { organizationId: demo.organizationId } })).toBe(3);
     }
   });
   it("pins signed demo sessions to the synthetic organization and clerk role", async () => {

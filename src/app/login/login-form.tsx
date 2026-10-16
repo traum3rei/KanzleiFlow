@@ -1,5 +1,6 @@
 "use client";
 
+import { PORTFOLIO_DEMOS } from "@/lib/auth/demo";
 import { useActionState, useState } from "react";
 import { loginAction, demoLoginAction, AuthActionState } from "@/app/actions/auth";
 
@@ -21,8 +22,15 @@ export function LoginForm({ allowDemoLogin = false }: LoginFormProps) {
   return (
     <div className="space-y-5">
       {allowDemoLogin && <form action={demoAction} className="space-y-2">
-        <button disabled={demoPending} type="submit" className="w-full px-3 py-3 rounded-lg bg-blue-800 text-white dark:bg-blue-600 font-semibold disabled:opacity-50">{demoPending ? "Demo wird geöffnet …" : "Demo-Zugang verwenden"}</button>
-        <p className="text-xs text-zinc-500">Ohne Passwort · Gemeinsame, ausschließlich fiktive Demo-Daten</p>
+        <fieldset disabled={demoPending || isPending} className="space-y-2">
+          <legend className="text-sm font-semibold mb-2">Demo-Notariat auswählen</legend>
+          {PORTFOLIO_DEMOS.map((demo, index) => <label key={demo.organizationId} className="flex items-start gap-3 rounded-lg border border-zinc-300 dark:border-zinc-700 p-3 cursor-pointer has-[:checked]:border-blue-700 has-[:checked]:bg-blue-50 dark:has-[:checked]:bg-blue-950/40">
+            <input type="radio" name="demoOrganizationId" value={demo.organizationId} defaultChecked={index === 0} className="mt-1 accent-blue-800" />
+            <span className="text-sm"><span className="block font-medium">{index === 0 ? "Demo-Notariat A" : "Demo-Notariat B"}</span><span className="text-xs text-zinc-500 dark:text-zinc-400">Eigene Akten · Fiktive Daten</span></span>
+          </label>)}
+        </fieldset>
+        <button disabled={demoPending || isPending} type="submit" className="w-full px-3 py-3 rounded-lg bg-blue-800 text-white dark:bg-blue-600 font-semibold disabled:opacity-50">{demoPending ? "Demo wird geöffnet …" : "Demo-Zugang verwenden"}</button>
+        <p className="text-xs text-zinc-500">Ohne Passwort · Zwei getrennte Mandanten. Zum Vergleich abmelden und das andere Notariat wählen.</p>
         {demoState.message && <p role="alert" className="text-sm text-rose-700 dark:text-rose-300">{demoState.message}</p>}
       </form>}
       <form action={formAction} className="space-y-4 font-sans">
@@ -85,7 +93,7 @@ export function LoginForm({ allowDemoLogin = false }: LoginFormProps) {
       {/* Submit Button */}
       <button
         type="submit"
-        disabled={isPending}
+        disabled={isPending || demoPending}
         className="w-full py-2 px-3 rounded-lg bg-blue-800 hover:bg-blue-900 dark:bg-blue-600 dark:text-white dark:hover:bg-blue-500 text-white text-sm font-sans font-medium  transition-colors duration-150 flex items-center justify-center gap-2 disabled:opacity-50"
       >
         {isPending ? (

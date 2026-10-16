@@ -3,7 +3,8 @@
 import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
 import { z } from "zod";
-import { PORTFOLIO_DEMO, isDemoLoginEnabled } from "@/lib/auth/demo";
+import { PORTFOLIO_DEMOS, isDemoLoginEnabled } from "@/lib/auth/demo";
+import { provisionPortfolioDemo } from "@/lib/services/portfolio-demo";
 import { getPrismaClient } from "@/lib/db";
 import {
   createSessionToken,
@@ -251,23 +252,27 @@ export async function switchOrganizationAction(orgId: string): Promise<{ success
   return { success: true };
 }
 
-/** Public entry point for the explicitly provisioned synthetic organization only. */
-export async function demoLoginAction(previous: AuthActionState): Promise<AuthActionState> {
+/** Public entry point restricted to the reserved synthetic organization. */
+export async function demoLoginAction(previous: AuthActionState, formData?: FormData): Promise<AuthActionState> {
   void previous;
   if (!isDemoLoginEnabled()) return { success: false, message: "Der Demo-Zugang ist nicht aktiviert." };
+  const selectedId = formData?.get("demoOrganizationId") ?? PORTFOLIO_DEMOS[0].organizationId;
+  const demo = PORTFOLIO_DEMOS.find((entry) => entry.organizationId === selectedId);
+  if (!demo) return { success: false, message: "Bitte wählen Sie eines der Demo-Notariate." };
   try {
     const prisma = getPrismaClient();
     if (!prisma) throw new Error("Demo database unavailable");
-    const user = await prisma.user.findUnique({ where: { id: PORTFOLIO_DEMO.userId }, include: { memberships: { include: { organization: true } } } });
+    await provisionPortfolioDemo(prisma);
+    const user = await prisma.user.findUnique({ where: { id: demo.userId }, include: { memberships: { include: { organization: true } } } });
     const membership = user?.memberships[0];
-    if (!user || user.email !== PORTFOLIO_DEMO.email || user.memberships.length !== 1 || !membership || membership.organizationId !== PORTFOLIO_DEMO.organizationId || membership.role !== "CLERK" || membership.organization.slug !== PORTFOLIO_DEMO.organizationSlug) {
+    if (!user || user.email !== demo.email || user.memberships.length !== 1 || !membership || membership.organizationId !== demo.organizationId || membership.role !== "CLERK" || membership.organization.slug !== demo.organizationSlug) {
       return { success: false, message: "Der Demo-Zugang ist noch nicht eingerichtet. Bitte versuchen Sie es später erneut." };
     }
-    const token = createSessionToken({ userId: user.id, email: user.email, fullName: user.fullName, demoOrganizationId: PORTFOLIO_DEMO.organizationId }, 60 * 60 * 1000);
+    const token = createSessionToken({ userId: user.id, email: user.email, fullName: user.fullName, demoOrganizationId: demo.organizationId }, 60 * 60 * 1000);
     const store = await cookies();
     const options = { httpOnly: true, secure: process.env.NODE_ENV === "production", sameSite: "lax" as const, path: "/", maxAge: 3600 };
     store.set(SESSION_COOKIE_NAME, token, options);
-    store.set(ACTIVE_ORG_COOKIE_NAME, PORTFOLIO_DEMO.organizationId, options);
+    store.set(ACTIVE_ORG_COOKIE_NAME, demo.organizationId, options);
   } catch {
     return { success: false, message: "Der Demo-Zugang ist derzeit nicht verfügbar. Bitte versuchen Sie es später erneut." };
   }

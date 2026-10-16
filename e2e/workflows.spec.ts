@@ -351,3 +351,32 @@ test("public portfolio demo is visible, usable and isolated under configured run
   await expect(page.getByRole("main")).toContainText("nicht für den produktiven Kanzleibetrieb");
   await page.screenshot({ path: "test-results/demo-information.png" });
 });
+
+
+test("public portfolio demo offers two isolated notariates", async ({ page, context }) => {
+  await context.clearCookies();
+  await page.goto("/login");
+  await page.getByRole("radio").nth(0).check();
+  await page.getByRole("button", { name: "Demo-Zugang verwenden", exact: true }).click();
+  await expect(page).toHaveURL(/\/cases$/);
+  await expect(page.getByRole("main").getByText("Fiktives Immobilienbeispiel", { exact: true })).toBeVisible();
+  const caseA = await page.getByRole("main").getByRole("link", { name: "Fiktives Immobilienbeispiel", exact: true }).getAttribute("href");
+  expect(caseA).toBeTruthy();
+  await context.clearCookies();
+  await page.goto("/login");
+  await page.getByRole("radio").nth(1).check();
+  await page.screenshot({ path: "test-results/demo-notariate-login.png", fullPage: true });
+  await page.getByRole("button", { name: "Demo-Zugang verwenden", exact: true }).click();
+  await expect(page).toHaveURL(/\/cases$/);
+  await expect(page.getByRole("main").getByText("Fiktives Immobilienbeispiel – Notariat B", { exact: true })).toBeVisible();
+  await expect(page.getByRole("main").getByText("Fiktives Immobilienbeispiel", { exact: true })).toHaveCount(0);
+  const caseB = await page.getByRole("main").getByRole("link", { name: "Fiktives Immobilienbeispiel – Notariat B", exact: true }).getAttribute("href");
+  expect((await page.request.get(`/api${caseA}`)).status()).toBe(403);
+  const token = (await context.cookies()).find((cookie) => cookie.name === "kanzleiflow_session")!;
+  expect(JSON.parse(Buffer.from(token.value.split(".")[0], "base64url").toString()).demoOrganizationId).toBe("org_portfolio_demo_b");
+  await context.clearCookies();
+  await page.goto("/login");
+  await page.getByRole("button", { name: "Demo-Zugang verwenden", exact: true }).click();
+  await expect(page).toHaveURL(/\/cases$/);
+  expect((await page.request.get(`/api${caseB}`)).status()).toBe(403);
+});

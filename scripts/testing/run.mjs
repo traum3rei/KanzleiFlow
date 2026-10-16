@@ -20,7 +20,7 @@ for (const file of ['.env', '.env.local', '.env.development', '.env.development.
   }
 }
 Object.assign(env, {
-  ENABLE_DEMO_LOGIN: "true",
+  ENABLE_DEMO_LOGIN: "", // Verify the public demo default without extra deployment flags.
   DATABASE_URL: TEST_DATABASE_URL, DIRECT_URL: TEST_DATABASE_URL,
   APP_ENV: 'development', VERCEL_ENV: 'development', REQUIRE_AUTH: 'false', ALLOW_DEMO_AUTH: 'true', KANZLEIFLOW_TEST_RUN: 'isolated',
   SESSION_SECRET: 'isolated-test-session-secret-not-for-production',

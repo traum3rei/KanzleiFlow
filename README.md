@@ -18,6 +18,8 @@ npm run test:serve
 ```
 
 Unter `http://127.0.0.1:3100` läuft eine isolierte Demo mit PostgreSQL und Mock-Extraktion.
+Auf der Login-Seite Demo-Notariat A oder B auswählen und „Demo-Zugang verwenden“ anklicken.
+Die Notariate besitzen getrennte Konten und Akten; zum Vergleich abmelden und neu auswählen.
 Mit Ctrl+C beenden; Datenbank und Dateien werden abgebaut. Keine echten Daten eingeben.
 
 ## Prüfung
