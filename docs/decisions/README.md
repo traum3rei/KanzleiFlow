@@ -1,119 +1,112 @@
-# Architecture Decision Records (ADRs) — KanzleiFlow
+# Architekturentscheidungen
 
-This directory documents the core architectural decisions made throughout the evolution of KanzleiFlow.
+Diese Übersicht erklärt die wichtigsten technischen Entscheidungen von KanzleiFlow und ihre
+Folgen. Sie beschreibt den im Repository vorhandenen Aufbau. Frühere Aussagen zu einem separaten
+Vite-Add-in, garantierter Skalierung oder bestätigter XNP-Kompatibilität werden hier korrigiert.
+Die Einträge sind keine nachträglichen Leistungs- oder Produktionsnachweise.
 
----
+## 1. Next.js App Router für Oberfläche und Server
 
-## ADR Index
+**Entscheidung:** React-Oberflächen, serverseitige Datenzugriffe, Server Actions und HTTP-Endpunkte
+liegen in einer Next.js-Anwendung. `next.config.ts` aktiviert Cache Components und Partial Prefetching.
+Die geschützten Seiten teilen sich das Layout unter `src/app/(workspace)`.
 
-| ADR ID | Title | Status | Date |
-| :--- | :--- | :--- | :--- |
-| [ADR-001](#adr-001-nextjs-app-router-with-server-components-and-partial-prerendering) | Next.js App Router with Server Components and Partial Prerendering | Accepted | 2026-10-10 |
-| [ADR-002](#adr-002-prisma-7-with-pg-pool-adapter-and-application-level-multi-tenant-isolation) | Prisma 7 with pg Pool Adapter and Application-Level Multi-Tenant Isolation | Accepted | 2026-10-11 |
-| [ADR-003](#adr-003-postgresql-backed-background-job-queue-with-skip-locked) | PostgreSQL-backed Background Job Queue with SKIP LOCKED | Accepted | 2026-10-12 |
-| [ADR-004](#adr-004-dual-authentication-architecture) | Dual Authentication Architecture (Supabase Auth SSR + Cryptographic HMAC Session Tokens) | Accepted | 2026-10-13 |
-| [ADR-005](#adr-005-file-based-xnp-import-packages-over-local-rest) | File-Based XNP / XNotar Import Packages over Local REST due to Browser Sandbox Restrictions | Accepted | 2026-10-14 |
-| [ADR-006](#adr-006-dedicated-vitereact-workspace-for-microsoft-word-add-in) | Dedicated Vite/React Workspace for Microsoft Word Task Pane Add-in | Accepted | 2026-10-15 |
-| [ADR-007](#adr-007-in-memory-ttl-caching-and-route-prefetching) | In-Memory TTL Caching and Route Prefetching for Sub-Second Multi-Tenant Navigation | Accepted | 2026-10-15 |
+**Grund:** Eine gemeinsame Anwendung hält den Weg zwischen Formularen, Authentifizierung und
+Fachlogik kurz. Das Layout erhält die Navigation bei Seitenwechseln.
 
----
+**Folge:** Server- und Client-Grenzen sowie das Zusammenspiel von Caching, Cookies und dynamischen
+Daten müssen bewusst behandelt werden. Für die eingesetzte Next.js-Version gelten die mitgelieferten
+Guides unter `node_modules/next/dist/docs/`.
 
-## ADR-001: Next.js App Router with Server Components and Partial Prerendering
+## 2. PostgreSQL und Prisma mit Isolation in der Anwendung
 
-### Context
-KanzleiFlow requires dense, data-rich legal interfaces that render quickly, handle streaming for AI extraction feedback, and protect sensitive legal data on the server without exposing full API routes to the client.
+**Entscheidung:** Organisationen teilen sich eine relationale Datenbank. Fachliche Daten werden
+über `organizationId` zugeordnet. Ein geprüfter Tenant-Kontext begrenzt Zugriffe; zusätzliche
+Eigentümerschaftsprüfungen schützen einzelne Ressourcen.
 
-### Decision
-Adopt Next.js 16 App Router using Turbopack, Server Actions for mutations, and Partial Prerendering (PPR).
+**Grund:** Prisma liefert typisierte Zugriffe; PostgreSQL unterstützt Beziehungen, Transaktionen
+und atomare Bedingungen für konkurrierende Änderungen.
 
-### Consequences
-- Pros: Server-side rendering keeps database queries and secrets off client machines; PPR delivers instant static shells while dynamic case data streams in.
-- Cons: Developers must understand the boundary between Client and Server Components.
+**Folge:** Die dokumentierte Verbindungsrolle umgeht RLS. Vergessene Filter oder Prüfungen können
+Daten offenlegen. Die Isolation ist keine automatisch durch Prisma garantierte Eigenschaft.
+Cross-Tenant-Tests sind deshalb Teil der Sicherheitsprüfung.
 
----
+Quellen im Projekt: [Tenant-Auflösung](../../src/lib/auth/tenant.ts),
+[Schema](../../prisma/schema.prisma), [Isolationstests](../../src/lib/auth/production-security.test.ts).
 
-## ADR-002: Prisma 7 with pg Pool Adapter and Application-Level Multi-Tenant Isolation
+## 3. Hintergrundjobs in PostgreSQL
 
-### Context
-When connecting via Prisma with database roles (`neondb_owner` / `postgres`), PostgreSQL Row Level Security (RLS) is automatically bypassed due to the superuser `BYPASSRLS` attribute. We needed a strategy to guarantee tenant isolation across 2,000 notaries.
+**Entscheidung:** Eine datenbankgestützte Queue beansprucht Jobs mit `FOR UPDATE SKIP LOCKED`.
+Der Worker unterstützt Wiederholungen und die Wiederaufnahme abgelaufener Leases.
 
-### Decision
-Enforce strict application-level multi-tenancy. Every Prisma query must include `{ organizationId: tenant.organizationId }`, and every mutation must invoke `assertTenantOwnership()`. A dedicated security test suite (`production-security.test.ts`) verifies these invariants.
+**Grund:** Hintergrundverarbeitung benötigt damit keinen zusätzlichen Redis- oder Message-Broker-Dienst.
 
-### Consequences
-- Pros: Type-safe database queries with Prisma 7, complete control over query plans, zero risk of accidental global data leakage when using helper guards.
-- Cons: Developers must remember to always pass the verified `TenantContext` to all service functions.
+**Folge:** Worker-Betrieb, Fehlerbehandlung und Datenbanklast bleiben betriebliche Aufgaben.
+Die Implementierung belegt keine bestimmte Zahl gleichzeitig unterstützter Notariate oder Jobs.
 
----
+Implementierung: [Queue und Worker](../../src/lib/queue).
 
-## ADR-003: PostgreSQL-backed Background Job Queue with SKIP LOCKED
+## 4. Cookie- und Bearer-Authentifizierung
 
-### Context
-Long-running workloads (OCR, Gemini AI extraction, OpenXML DOCX assembly, PKZIP exports) need asynchronous processing to keep UI response times fast. Introducing Redis or RabbitMQ would add operational complexity.
+**Entscheidung:** Die Webanwendung unterstützt Supabase-SSR-Sitzungen und signierte HMAC-Sitzungen.
+Für den Word-Aufgabenbereich existiert zusätzlich ein Bearer-Zugriffspfad.
 
-### Decision
-Implement a database-backed job queue in PostgreSQL using `SELECT ... FOR UPDATE SKIP LOCKED` with automatic stale lease recovery and exponential backoff retries.
+**Grund:** Eingebettete Office-WebViews können andere Cookie-Bedingungen als der normale Browser haben.
 
-### Consequences
-- Pros: Zero additional infrastructure dependencies; transactional consistency with cases and documents; full tenant isolation inside the database.
-- Cons: Not suited for ultra-high-frequency (millions of jobs/second) streaming workloads, but exceptionally suited for 2,000 notary offices processing tens of thousands of deeds per day.
+**Folge:** Beide Zugriffswege müssen dieselben Organisationsmitgliedschaften und Zugriffskontrollen
+anwenden. Demo-Sitzungen sind an reservierte synthetische Identitäten gebunden.
+Ein externer Supabase-Betrieb muss separat geprüft werden.
 
----
+Implementierung: [Sitzungen](../../src/lib/auth/session.ts), [Tenant-Auflösung](../../src/lib/auth/tenant.ts).
 
-## ADR-004: Dual Authentication Architecture
+## 5. Datei-Exporte als XNP-Integrationsprototyp
 
-### Context
-Standard browser cookies work well for web users, but embedded Microsoft Word task-pane WebViews frequently block third-party cookies or run in sandboxed contexts.
+**Entscheidung:** XML-Daten und Metadaten werden als ZIP-Pakete erzeugt. Exporte besitzen gespeicherte
+Snapshots und Hashes. Sie sind ausdrücklich als technische Prototypen gekennzeichnet.
 
-### Decision
-Support both Supabase Auth SSR cookies for browser sessions and cryptographically signed HMAC-SHA256 session tokens supporting `Authorization: Bearer <token>` for Word Add-in WebViews.
+**Grund:** Ein cloudbasierter Browser kann eine lokale XNP-Schnittstelle nicht als allgemein
+verfügbaren Integrationsweg voraussetzen. Datei-Exporte ermöglichen die Untersuchung einer Übergabe.
 
-### Consequences
-- Pros: Seamless authentication in both desktop Word and modern browsers; robust fallback during local testing.
-- Cons: Two session resolution paths must be maintained in `session.ts`.
+**Folge:** Interne Pflichtfeldprüfungen und ZIP-Erzeugung belegen weder amtliche XSD-Konformität
+noch einen erfolgreichen Import. Ein offizieller XNP-Import und die fachliche Abnahme stehen aus.
 
----
+Implementierung: [XNP-Prototyp](../../src/lib/integrations/xnp).
 
-## ADR-005: File-Based XNP Import Packages over Local REST
+## 6. Word-Aufgabenbereich innerhalb von Next.js
 
-### Context
-The Bundesnotarkammer provides a local REST WebService on `127.0.0.1:12774–12824`. However, modern browsers enforce W3C Private Network Access (PNA) and Mixed Content blocking, preventing cloud SaaS web pages from directly calling localhost HTTP endpoints.
+**Entscheidung:** Der Aufgabenbereich liegt unter `src/app/word-addin/taskpane`; Office.js-Helfer
+liegen unter `src/lib/addin`. Das Verzeichnis `word-addin/` enthält die Manifeste.
 
-### Decision
-Implement structured PKZIP 2.0 import packages containing specification-compliant XML manifests (XNotar Grundbuch, UVZ, eNoVA) and deed attachments for manual or automated import into XNP.
+**Grund:** Oberfläche und API nutzen dieselbe Anwendung und denselben Entwicklungsserver.
 
-### Consequences
-- Pros: Works immediately in all browsers without security blocks or local network configuration; produces verifiable, immutable audit archives.
-- Cons: Requires one additional click in XNP ("Importieren -> Aus Datei") compared to direct REST push.
+**Folge:** Es gibt keinen separaten Vite-Build. Ein echter Office-Test benötigt passende
+Manifest-Adressen und vertrauenswürdiges HTTPS. Browser-Tests ersetzen keine Word-Host-Prüfung.
 
----
+Anleitung: [Word-Add-in](../../word-addin/README.md).
 
-## ADR-006: Dedicated Vite/React Workspace for Microsoft Word Add-in
+## 7. Zeitlich begrenzte Caches und stabile Navigation
 
-### Context
-Microsoft Word Add-ins require specific HTTPS localhost certificates, Office.js scripts, and an isolated bundle structure distinct from the Next.js SaaS shell.
+**Entscheidung:** Datenbankgesundheit, verfügbare Zuständigkeiten und Statuszahlen werden zeitlich
+begrenzt zwischengespeichert. Fachliche Caches werden pro Organisation geführt und nach
+Aktenänderungen invalidiert. Gemeinsame Layouts, Ladeansichten und Link-Prefetching unterstützen Navigation.
 
-### Decision
-Place the Word Add-in inside a separate workspace in `apps/word-addin/` using Vite, React 19, and `@vitejs/plugin-basic-ssl`.
+**Grund:** Weniger wiederholte Datenbankabfragen und ein stabiler Seitenrahmen verbessern die Bedienung.
 
-### Consequences
-- Pros: Clean separation of concerns; fast Vite HMR during add-in development; independent build and deployment lifecycle.
-- Cons: Requires running a separate dev server (`npm run dev` in `apps/word-addin`) during local add-in development.
+**Folge:** In-Memory-Caches gelten nur innerhalb einer Serverinstanz. Änderungen und Cache-Schlüssel
+müssen die Mandantengrenzen respektieren; eine konkrete Beschleunigung ist separat zu messen.
 
----
+## 8. Reproduzierbare Prüfung mit temporärem PostgreSQL
 
-## ADR-007: In-Memory TTL Caching and Route Prefetching
+**Entscheidung:** Der Test-Runner startet eine wegwerfbare PostgreSQL-Instanz, richtet synthetische
+Daten ein, prüft Schemaabweichungen und entfernt die Testdaten anschließend.
 
-### Context
-Serverless PostgreSQL (Neon) introduces network round-trip latency (50-150 ms per query from Germany to Frankfurt) and cold-start connection handshakes (~850 ms). Running multiple un-cached queries per navigation created noticeable UI lag.
+**Grund:** Datenbanktests und Vorführungen sollen ohne Zugriff auf bestehende Entwicklungs- oder
+Produktionsdaten reproduzierbar sein.
 
-### Decision
-Implement multi-tier performance enhancements:
-1. In-memory TTL caching for `testDatabaseConnection` (60s), `getAvailableAssignees` (60s), and `getCaseStatusCounts` (15s).
-2. Automatic cache invalidation (`invalidateTenantCaches`) on case mutations.
-3. Explicit `prefetch={true}` on all internal navigation links, table rows, filter tabs, and pagination buttons.
-4. Stable loading skeletons in `loading.tsx` retaining identical header dimensions to prevent visual jumps.
+**Folge:** Läufe verwenden feste lokale Ports und werden nacheinander ausgeführt. Die historischen
+Migrationsnamen erfordern vor einem externen Deployment eine gesonderte Baselineprüfung;
+der Test-Runner führt sie ausdrücklich in Abhängigkeitsreihenfolge aus.
 
-### Consequences
-- Pros: Page transitions accelerated by 5x (from ~1,200 ms to ~240 ms); eliminates 5 to 6 database queries per page visit; zero navbar flickering.
-- Cons: Status count changes may take up to 15 seconds to reflect if not triggered by an internal mutation action.
+Anleitung: [Testaufbau](../operations/testing.md), [Runner](../../scripts/testing/run.mjs).
+
+[Zur Projektübersicht](../../README.md)
